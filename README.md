@@ -4,7 +4,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![welltraj](https://img.shields.io/badge/welltraj-v1.0-teal.svg)
-![GitHub Pages](https://img.shields.io/badge/deploy-GitHub%20Pages-222.svg?logo=github)
+
 
 ---
 
@@ -12,7 +12,7 @@
 
 Anti-Collision Analyst is a browser-based tool for oil & gas directional drilling engineers. It computes the **Separation Factor (SF)** between a design well and one or more offset wells, visualises all trajectories in 2D / 3D, and exports professional PDF and Excel reports — with no server required.
 
-![screenshot placeholder](docs/screenshot.png)
+
 
 ---
 
