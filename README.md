@@ -63,12 +63,6 @@ npx serve .
 
 Then navigate to `http://localhost:3000`.
 
-### Deploy to GitHub Pages
-
-1. Push the repository to GitHub.
-2. Go to **Settings → Pages → Source** and select the `main` branch, root folder.
-3. Your app will be live at `https://geoharkat.github.io/Anti-Collision/`.
-
 ---
 
 ## Survey File Format
