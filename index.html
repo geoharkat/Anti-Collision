@@ -1,1928 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anti-Collision Analyst</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <script src="welltraj.umd.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <style>
-    :root {
-      --bg:           #f1f5f9;
-      --card-bg:      #ffffff;
-      --primary:      #0f172a;
-      --primary-soft: #1e293b;
-      --accent:       #0d9488;
-      --accent-h:     #0f766e;
-      --accent-2:     #14b8a6;
-      --success:      #059669;
-      --danger:       #dc2626;
-      --warn:         #d97706;
-      --warm:         #ea580c;
-      --border:       #e2e8f0;
-      --border-lt:    #f1f5f9;
-      --text:         #1e293b;
-      --muted:        #64748b;
-      --sidebar-w:    430px;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 13px;
-      color: var(--text);
-      background: var(--bg);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ── Header ── */
-    header {
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-      color: #fff;
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-      z-index: 10;
-    }
-    .hdr-icon {
-      width: 40px; height: 40px;
-      background: rgba(13,148,136,0.18);
-      border: 1px solid rgba(13,148,136,0.35);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 17px; color: var(--accent-2); flex-shrink: 0;
-    }
-    .hdr-title h1  { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-    .hdr-title p   { font-size: 11px; color: #94a3b8; margin-top: 1px; }
-    .hdr-badge {
-      margin-left: auto;
-      background: rgba(13,148,136,0.14);
-      border: 1px solid rgba(13,148,136,0.28);
-      color: var(--accent-2);
-      font-size: 10px; font-weight: 600;
-      padding: 3px 10px; border-radius: 20px;
-      letter-spacing: 0.3px;
-    }
-
-    /* ── Layout ── */
-    .app-body { display: flex; flex: 1; overflow: hidden; }
-
-    /* ── Sidebar ── */
-    aside {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: var(--card-bg);
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-
-    .section { padding: 14px 16px; border-bottom: 1px solid var(--border-lt); }
-
-    .section-title {
-      font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.8px;
-      color: var(--muted); margin-bottom: 11px;
-      display: flex; align-items: center; gap: 7px;
-    }
-    .section-title::before {
-      content: ''; display: inline-block;
-      width: 3px; height: 13px;
-      background: var(--accent); border-radius: 2px;
-    }
-    .section-title i { color: var(--accent); }
-
-    /* ── Upload zones ── */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 8px; padding: 14px;
-      text-align: center; cursor: pointer;
-      transition: all 0.15s; margin-bottom: 8px;
-      background: var(--bg);
-    }
-    .upload-zone:hover, .upload-zone.drag-over {
-      border-color: var(--accent);
-      background: rgba(13,148,136,0.04);
-    }
-    .upload-zone i      { font-size: 20px; color: var(--accent); margin-bottom: 5px; display: block; }
-    .upload-zone .uz-t  { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
-    .upload-zone .uz-h  { font-size: 11px; color: var(--muted); }
-    .upload-zone input  { display: none; }
-
-    /* ── Well chips ── */
-    .well-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
-    .well-chip {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 7px; padding: 7px 9px; font-size: 12px;
-    }
-    .chip-icon {
-      width: 26px; height: 26px; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; flex-shrink: 0;
-    }
-    .well-chip.design .chip-icon { background: rgba(13,148,136,0.14); color: var(--accent); }
-    .chip-name  { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .chip-stats { font-size: 10px; color: var(--muted); }
-    .chip-del   { color: #cbd5e1; cursor: pointer; padding: 3px; border-radius: 4px; transition: all 0.12s; }
-    .chip-del:hover { color: var(--danger); background: rgba(220,38,38,0.08); }
-
-    /* ── Form fields ── */
-    .field { margin-bottom: 9px; }
-    .field label {
-      display: block; font-size: 10px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: 0.5px; margin-bottom: 3px;
-    }
-    .field input, .field select {
-      width: 100%; padding: 7px 9px;
-      border: 1px solid var(--border); border-radius: 6px;
-      font-size: 13px; font-family: inherit;
-      color: var(--text); background: var(--bg);
-      transition: border-color 0.15s;
-    }
-    .field input:focus, .field select:focus {
-      outline: none; border-color: var(--accent);
-    }
-    .field-row { display: flex; gap: 8px; }
-    .field-row .field { flex: 1; }
-
-    /* ── Toggle ── */
-    .toggle-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; margin-bottom: 9px;
-      border-bottom: 1px solid var(--border-lt);
-    }
-    .toggle-row .tl { font-size: 12px; font-weight: 600; cursor: pointer; }
-    .toggle-row .ts { font-size: 10px; color: var(--muted); }
-    .toggle {
-      position: relative; width: 36px; height: 20px;
-      cursor: pointer; flex-shrink: 0;
-    }
-    .toggle input { display: none; }
-    .toggle .slider {
-      position: absolute; inset: 0;
-      background: #cbd5e1; border-radius: 20px;
-      transition: background 0.2s;
-    }
-    .toggle .slider::before {
-      content: ''; position: absolute;
-      width: 14px; height: 14px;
-      top: 3px; left: 3px;
-      background: white; border-radius: 50%;
-      transition: transform 0.2s;
-    }
-    .toggle input:checked + .slider { background: var(--accent); }
-    .toggle input:checked + .slider::before { transform: translateX(16px); }
-
-    .iscwsa-block { display: none; }
-    .iscwsa-block.open { display: block; }
-
-    /* ── Buttons ── */
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 9px 16px; border: none; border-radius: 7px;
-      font-size: 13px; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: all 0.14s; white-space: nowrap;
-    }
-    .btn-primary  { background: var(--accent); color: #fff; }
-    .btn-primary:hover  { background: var(--accent-h); }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-outline  { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
-    .btn-outline:hover  { background: rgba(13,148,136,0.07); }
-    .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-sm  { padding: 6px 12px; font-size: 12px; }
-    .btn-full { width: 100%; }
-
-    /* ── Summary cards ── */
-    .sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 4px; }
-    .stat-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 9px 11px;
-    }
-    .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 3px; }
-    .stat-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1; }
-    .stat-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
-    .sc-safe    .stat-value { color: var(--success); }
-    .sc-warn    .stat-value { color: var(--warn); }
-    .sc-danger  .stat-value { color: var(--danger); }
-    .sc-neutral .stat-value { color: var(--text); }
-
-    /* ── Main ── */
-    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-    /* ── Tab bar ── */
-    .tab-bar {
-      background: var(--card-bg); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; padding: 0 16px;
-      flex-shrink: 0;
-    }
-    .tabs { display: flex; flex: 1; }
-    .tab {
-      display: flex; align-items: center; gap: 5px;
-      padding: 11px 14px; font-size: 12px; font-weight: 500;
-      color: var(--muted); cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.14s; white-space: nowrap;
-    }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-    .tab-actions { display: flex; gap: 6px; }
-
-    /* ── Tab panels ── */
-    .tab-content { flex: 1; overflow: hidden; position: relative; }
-    .tab-panel { display: none; height: 100%; padding: 14px; flex-direction: column; }
-    .tab-panel.active { display: flex; }
-    .chart-wrap { flex: 1; min-height: 0; }
-
-    /* ── Empty states ── */
-    .empty {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      height: 100%; gap: 10px; color: var(--muted); text-align: center;
-    }
-    .empty i  { font-size: 44px; opacity: 0.2; }
-    .empty h3 { font-size: 14px; color: var(--text); opacity: 0.45; }
-    .empty p  { font-size: 11px; max-width: 260px; }
-
-    /* ── Table ── */
-    .tbl-outer { flex: 1; overflow: auto; border-radius: 8px; border: 1px solid var(--border); }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    thead th {
-      background: var(--primary); color: #fff;
-      padding: 9px 11px; text-align: left;
-      font-size: 10px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      white-space: nowrap; position: sticky; top: 0; z-index: 1;
-    }
-    tbody tr { border-bottom: 1px solid var(--border-lt); }
-    tbody tr:last-child { border-bottom: none; }
-    tbody td { padding: 7px 11px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
-    tbody tr.row-safe   { background: rgba(5,150,105,0.03); }
-    tbody tr.row-warn   { background: rgba(217,119,6,0.05); }
-    tbody tr.row-danger { background: rgba(220,38,38,0.05); }
-    tbody tr:hover      { filter: brightness(0.97); }
-
-    .badge {
-      display: inline-flex; align-items: center;
-      padding: 2px 7px; border-radius: 20px;
-      font-size: 9px; font-weight: 800; letter-spacing: 0.4px;
-      font-family: 'DM Sans', system-ui;
-    }
-    .bg-safe   { background: rgba(5,150,105,0.1);  color: var(--success); }
-    .bg-warn   { background: rgba(217,119,6,0.1);  color: var(--warn); }
-    .bg-danger { background: rgba(220,38,38,0.1);  color: var(--danger); }
-
-    /* ── Legend ── */
-    .legend-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
-    .leg-item { display: flex; align-items: center; gap: 4px; }
-    .leg-dot  { width: 9px; height: 9px; border-radius: 50%; }
-
-    /* ── Footer ── */
-    footer {
-      background: var(--primary); color: #475569;
-      font-size: 11px; padding: 8px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-    }
-    footer a { color: var(--accent); text-decoration: none; }
-
-    /* ── Toast ── */
-    #toast-box {
-      position: fixed; bottom: 20px; right: 20px;
-      display: flex; flex-direction: column; gap: 7px;
-      z-index: 9999;
-    }
-    .toast {
-      display: flex; align-items: center; gap: 9px;
-      background: var(--primary-soft); color: #e2e8f0;
-      padding: 9px 14px; border-radius: 8px;
-      font-size: 12px; border-left: 3px solid var(--accent);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-      animation: toastIn 0.18s ease;
-      max-width: 310px;
-    }
-    .toast.err { border-left-color: var(--danger); }
-    .toast.ok  { border-left-color: var(--success); }
-    @keyframes toastIn {
-      from { transform: translateX(16px); opacity: 0; }
-      to   { transform: translateX(0);    opacity: 1; }
-    }
-
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-    /* ── Editable well cards ── */
-    .well-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; overflow: hidden; font-size: 12px;
-    }
-    .wcard-top { display: flex; align-items: center; gap: 7px; padding: 7px 9px; }
-    .wcard-edit-btn {
-      width: 26px; height: 26px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 5px; cursor: pointer; color: var(--muted);
-      transition: all 0.12s; flex-shrink: 0;
-    }
-    .wcard-edit-btn:hover, .wcard-edit-btn.open { background: rgba(13,148,136,0.1); color: var(--accent); }
-    .wcard-body {
-      display: none; padding: 9px;
-      border-top: 1px solid var(--border-lt); background: var(--card-bg);
-    }
-    .wcard-body.open { display: block; }
-    .wcard-body .field { margin-bottom: 7px; }
-    .wcard-body .field:last-child { margin-bottom: 0; }
-
-    .mode-badge {
-      display: inline-flex; align-items: center; gap: 3px;
-      font-size: 9px; font-weight: 800; letter-spacing: 0.3px;
-      padding: 1px 6px; border-radius: 10px; flex-shrink: 0;
-    }
-    .mb-designed { background: rgba(234,88,12,0.1); color: #ea580c; }
-    .mb-original  { background: rgba(13,148,136,0.1); color: #0d9488; }
-
-    /* ── Trajectory Designer ── */
-    .td-sf-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 9px 12px;
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .td-sf-val { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-    .td-sf-icon { font-size: 26px; }
-    .orig-lock-badge {
-      background: rgba(5,150,105,0.07);
-      border: 1px solid rgba(5,150,105,0.2);
-      border-radius: 7px; padding: 8px 10px;
-      font-size: 11px; color: var(--success);
-      display: flex; gap: 7px; align-items: flex-start;
-      margin-top: 8px; line-height: 1.4;
-    }
-    .orig-lock-badge i { margin-top: 1px; flex-shrink: 0; }
-
-    /* ── Leaflet map ── */
-    #map-container {
-      flex: 1; min-height: 0;
-      border-radius: 8px; overflow: hidden;
-      border: 1px solid var(--border);
-    }
-    .leaflet-container { font-family: 'DM Sans', system-ui, sans-serif; font-size: 12px; }
-    /* keep leaflet controls below our fixed elements */
-    .leaflet-pane    { z-index: 1 !important; }
-    .leaflet-control { z-index: 2 !important; }
-
-    .map-legend {
-      display: flex; gap: 14px; flex-wrap: wrap;
-      align-items: center; margin-bottom: 8px;
-      font-size: 11px; color: var(--muted);
-    }
-    .map-legend-item { display: flex; align-items: center; gap: 4px; }
-    .map-legend-line { width: 20px; height: 3px; border-radius: 2px; }
-
-    /* sample data hint */
-    .sample-hint {
-      background: rgba(13,148,136,0.06);
-      border: 1px solid rgba(13,148,136,0.2);
-      border-radius: 7px; padding: 8px 10px;
-      font-size: 11px; color: var(--muted);
-      display: flex; gap: 7px; align-items: flex-start; margin-top: 6px;
-    }
-    .sample-hint i { color: var(--accent); margin-top: 1px; flex-shrink: 0; }
-    .sample-hint code {
-      background: rgba(0,0,0,0.05); border-radius: 3px;
-      padding: 1px 4px; font-size: 10px; font-family: 'JetBrains Mono', monospace;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Collision Analyst</title>
+    <meta name="author" content="Ismail Harkat">
+    <meta name="description" content="Anti-Collision Analyst — separation-factor screening between a design well and offset wells, in your browser.">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ═══════════ HEADER ═══════════ -->
-<header>
-  <div class="hdr-icon"><i class="fas fa-shield-halved"></i></div>
-  <div class="hdr-title">
-    <h1>Anti-Collision Analyst</h1>
-    <p>Separation Factor Analysis &amp; ISCWSA MWD Uncertainty Model</p>
-  </div>
-  <div class="hdr-badge"><i class="fas fa-circle-dot" style="margin-right:4px;"></i>welltraj v1.0</div>
-</header>
-
-<div class="app-body">
-
-<!-- ═══════════ SIDEBAR ═══════════ -->
-<aside>
-
-  <!-- Well Management -->
-  <div class="section">
-    <div class="section-title"><i class="fas fa-oil-well"></i> Well Management</div>
-
-    <div class="upload-zone" id="dz-design" onclick="document.getElementById('fi-design').click()">
-      <input type="file" id="fi-design" accept=".csv,.xlsx,.xls,.txt" onchange="onDesignFile(this)">
-      <i class="fas fa-circle-dot"></i>
-      <div class="uz-t">Design Well</div>
-      <div class="uz-h">CSV / Excel &nbsp;·&nbsp; columns: MD, INC, AZI</div>
-    </div>
-
-    <div class="upload-zone" id="dz-offset" onclick="document.getElementById('fi-offset').click()">
-      <input type="file" id="fi-offset" accept=".csv,.xlsx,.xls,.txt" multiple onchange="onOffsetFiles(this)">
-      <i class="fas fa-layer-group"></i>
-      <div class="uz-t">Offset Wells</div>
-      <div class="uz-h">CSV / Excel &nbsp;·&nbsp; multiple files allowed</div>
-    </div>
-
-    <div id="well-list" class="well-list" style="display:none;"></div>
-
-    <div class="sample-hint">
-      <i class="fas fa-folder-open"></i>
-      <div>Sample surveys in <code>sample-data/</code> — load <code>design-well.csv</code> as design, then any <code>offset-*.csv</code> files as offsets.</div>
-    </div>
-  </div>
-
-  <!-- Parameters -->
-  <div class="section">
-    <div class="section-title"><i class="fas fa-sliders"></i> Analysis Parameters</div>
-
-    <div class="field">
-      <label>VS Azimuth (°)</label>
-      <input type="number" id="inp-vsaz" value="0" min="0" max="360" step="1">
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Design radius (m)</label>
-        <input type="number" id="inp-dr" value="0.15" min="0.05" max="2" step="0.01">
-      </div>
-      <div class="field">
-        <label>Offset radius (m)</label>
-        <input type="number" id="inp-or" value="0.15" min="0.05" max="2" step="0.01">
-      </div>
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Warn SF ≥</label>
-        <input type="number" id="inp-sfwarn" value="1.5" min="0.5" max="10" step="0.1">
-      </div>
-      <div class="field">
-        <label>Critical SF &lt;</label>
-        <input type="number" id="inp-sfcrit" value="1.0" min="0.1" max="5"  step="0.1">
-      </div>
-    </div>
-
-    <!-- ISCWSA toggle -->
-    <div class="toggle-row">
-      <div>
-        <div class="tl">ISCWSA Uncertainty</div>
-        <div class="ts">Enable MWD error-ellipse SF column</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="tog-iscwsa" onchange="toggleIscwsa(this.checked)">
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="iscwsa-block" id="iscwsa-block">
-      <div class="field-row">
-        <div class="field">
-          <label>Depth factor</label>
-          <input type="number" id="inp-ef-d" value="0.0035" step="0.0001" min="0">
+<div class="header">
+    <div class="brand">
+        <div class="brand-mark">AC</div>
+        <div class="brand-text">
+            <h2>Anti-Collision Analyst</h2>
+            <small>Separation Factor Screening &middot; Minimum Curvature</small>
         </div>
-        <div class="field">
-          <label>Inc error (°)</label>
-          <input type="number" id="inp-ef-i" value="0.2" step="0.05" min="0">
+    </div>
+    <div class="header-actions">
+        <span class="status-badge screening" title="Simplified uncertainty model, not ISCWSA. Not for operational decisions.">Screening tool &middot; not ISCWSA</span>
+        <div class="unit-switch" role="group" aria-label="Unit system">
+            <button type="button" data-unit="m" onclick="setUnits('m')" title="Metres, hole radius in metres">Metric (m)</button>
+            <button type="button" data-unit="ft" onclick="setUnits('ft')" title="Feet, hole radius in inches">Field (ft)</button>
         </div>
-      </div>
-      <div class="field">
-        <label>Azi error (°)</label>
-        <input type="number" id="inp-ef-a" value="0.5" step="0.05" min="0">
-      </div>
-    </div>
-
-    <button class="btn btn-primary btn-full" id="btn-scan" onclick="runScan()" disabled>
-      <i class="fas fa-radar"></i> Run Anti-Collision Scan
-    </button>
-  </div>
-
-  <!-- Trajectory Designer (shown when design well loaded) -->
-  <div class="section" id="sec-traj-designer" style="display:none;">
-    <div class="section-title"><i class="fas fa-pencil-ruler"></i> Trajectory Designer</div>
-
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-      Redesign a J-profile to improve clearance. Lock the original scan first — the PDF will include both trajectory analyses.
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>KOP (m)</label>
-        <input type="number" id="td-kop" value="500" step="10" min="0" oninput="onDesignerInput()">
-      </div>
-      <div class="field">
-        <label>Azimuth (°)</label>
-        <input type="number" id="td-az" value="45" step="1" min="0" max="360" oninput="onDesignerInput()">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Build rate (°/30m)</label>
-        <input type="number" id="td-br" value="3.0" step="0.5" min="0.5" max="20" oninput="onDesignerInput()">
-      </div>
-      <div class="field">
-        <label>Target inc (°)</label>
-        <input type="number" id="td-inc" value="45" step="1" min="0" max="90" oninput="onDesignerInput()">
-      </div>
-    </div>
-    <div class="field">
-      <label>Total MD / TD (m)</label>
-      <input type="number" id="td-md" value="2800" step="50" min="100" oninput="onDesignerInput()">
-    </div>
-
-    <div style="margin-bottom:12px;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--muted);">
-        <input type="checkbox" id="td-autoscan" checked>
-        Auto-scan on change
-      </label>
-    </div>
-
-    <!-- Live SF card -->
-    <div class="td-sf-card" id="td-sf-card" style="display:none;">
-      <div>
-        <div style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Min SF (designed)</div>
-        <div class="td-sf-val" id="td-sf-val">—</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="td-sf-sub"></div>
-      </div>
-      <div class="td-sf-icon" id="td-sf-icon"></div>
-    </div>
-
-    <div style="display:flex;gap:6px;margin-bottom:8px;">
-      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="lockOriginal()" id="btn-lock-orig">
-        <i class="fas fa-lock"></i> Lock Original
-      </button>
-      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="resetToOriginal()" id="btn-reset-orig" disabled>
-        <i class="fas fa-rotate-left"></i> Reset
-      </button>
-    </div>
-    <button class="btn btn-primary btn-full" style="font-size:12px;" onclick="applyDesign()">
-      <i class="fas fa-wand-magic-sparkles"></i> Apply Designed Trajectory
-    </button>
-
-    <div class="orig-lock-badge" id="orig-lock-badge" style="display:none;">
-      <i class="fas fa-circle-check"></i>
-      <span>Original trajectory locked — PDF will compare both analyses.</span>
-    </div>
-  </div>
-
-  <!-- Default Field Location -->
-  <div class="section">
-    <div class="section-title"><i class="fas fa-location-dot"></i> Default Field Location</div>
-    <div class="field-row">
-      <div class="field">
-        <label>Latitude (°)</label>
-        <input type="number" id="inp-reflat" value="30.4500" step="0.0001" placeholder="30.4500">
-      </div>
-      <div class="field">
-        <label>Longitude (°)</label>
-        <input type="number" id="inp-reflon" value="5.8200" step="0.0001" placeholder="5.8200">
-      </div>
-    </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.5;">
-      <i class="fas fa-circle-info" style="color:var(--accent);"></i>
-      Design well surface location. All trajectories are plotted relative to this point using the computed North/East offsets.
-    </div>
-    <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:12px;" onclick="refreshMap()">
-      <i class="fas fa-map-location-dot"></i> Update Map
-    </button>
-  </div>
-
-  <!-- Summary (hidden until scan) -->
-  <div class="section" id="sec-summary" style="display:none;">
-    <div class="section-title"><i class="fas fa-chart-bar"></i> Scan Summary</div>
-    <div id="sum-grid" class="sum-grid"></div>
-  </div>
-
-</aside>
-
-<!-- ═══════════ MAIN ═══════════ -->
-<main>
-
-  <!-- Tab bar -->
-  <div class="tab-bar">
-    <div class="tabs">
-      <div class="tab active" id="tab-sf"   onclick="switchTab('sf')">
-        <i class="fas fa-chart-line"></i> SF Profile
-      </div>
-      <div class="tab" id="tab-dist"        onclick="switchTab('dist')">
-        <i class="fas fa-ruler-horizontal"></i> Distance
-      </div>
-      <div class="tab" id="tab-3d"          onclick="switchTab('3d')">
-        <i class="fas fa-cube"></i> 3D View
-      </div>
-      <div class="tab" id="tab-plan"        onclick="switchTab('plan')">
-        <i class="fas fa-map"></i> Plan View
-      </div>
-      <div class="tab" id="tab-table"       onclick="switchTab('table')">
-        <i class="fas fa-table"></i> Scan Table
-      </div>
-      <div class="tab" id="tab-map"         onclick="switchTab('map')">
-        <i class="fas fa-earth-africa"></i> Map
-      </div>
-    </div>
-    <div class="tab-actions">
-      <button class="btn btn-outline btn-sm" id="btn-xl" onclick="exportExcel()" disabled>
-        <i class="fas fa-file-excel"></i> Excel
-      </button>
-      <button class="btn btn-outline btn-sm" id="btn-pdf" onclick="exportPDF()" disabled>
-        <i class="fas fa-file-pdf"></i> PDF
-      </button>
-    </div>
-  </div>
-
-  <!-- Panels -->
-  <div class="tab-content">
-
-    <!-- SF Profile -->
-    <div class="tab-panel active" id="panel-sf">
-      <div class="empty" id="es-sf">
-        <i class="fas fa-shield-halved"></i>
-        <h3>No scan results yet</h3>
-        <p>Load your design and offset wells, then click "Run Anti-Collision Scan".</p>
-      </div>
-      <div id="plt-sf" class="chart-wrap" style="display:none;"></div>
-    </div>
-
-    <!-- Distance Profile -->
-    <div class="tab-panel" id="panel-dist">
-      <div class="empty" id="es-dist">
-        <i class="fas fa-ruler-horizontal"></i>
-        <h3>No scan results yet</h3>
-        <p>Centre-to-centre distance per design MD for every offset well.</p>
-      </div>
-      <div id="plt-dist" class="chart-wrap" style="display:none;"></div>
-    </div>
-
-    <!-- 3D View -->
-    <div class="tab-panel" id="panel-3d">
-      <div class="empty" id="es-3d">
-        <i class="fas fa-cube"></i>
-        <h3>Load wells to see 3D view</h3>
-        <p>All trajectories rendered as soon as wells are parsed.</p>
-      </div>
-      <div id="plt-3d" class="chart-wrap" style="display:none;"></div>
-    </div>
-
-    <!-- Plan View -->
-    <div class="tab-panel" id="panel-plan">
-      <div class="empty" id="es-plan">
-        <i class="fas fa-map"></i>
-        <h3>Load wells to see plan view</h3>
-        <p>Top-down North / East spider view of all trajectories.</p>
-      </div>
-      <div id="plt-plan" class="chart-wrap" style="display:none;"></div>
-    </div>
-
-    <!-- Scan Table -->
-    <div class="tab-panel" id="panel-table">
-      <div class="empty" id="es-table">
-        <i class="fas fa-table"></i>
-        <h3>No scan results yet</h3>
-        <p>Detailed station-by-station separation factor table.</p>
-      </div>
-      <div id="tbl-wrap" style="display:none; flex:1; flex-direction:column; gap:8px;">
-        <div class="legend-row" id="tbl-legend"></div>
-        <div class="tbl-outer">
-          <table>
-            <thead>
-              <tr>
-                <th>Design MD (m)</th>
-                <th>Offset Well</th>
-                <th>Offset MD (m)</th>
-                <th>Distance (m)</th>
-                <th>SF</th>
-                <th>SF ISCWSA</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="tbl-body"></tbody>
-          </table>
+        <div class="btn-group">
+            <button class="btn btn-export" onclick="exportCSV()" title="The table shown below, as CSV">CSV</button>
+            <button class="btn btn-export" onclick="exportExcel()">Excel</button>
+            <button class="btn btn-export" id="btnPdf" onclick="exportPDFReport()">PDF report</button>
+            <button class="btn btn-about" onclick="openAbout()">About</button>
         </div>
-      </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="sidebar">
+
+        <div class="section-title" style="margin-top:4px">Design Well</div>
+        <div class="drop-zone" id="zone-design">
+            <button class="btn btn-primary" onclick="pickFiles('design')">Choose design survey</button>
+            <span>or drop a file here</span>
+            <input type="file" id="file-design" accept=".csv,.tsv,.txt,.las,.xlsx,.xlsm,.xls" hidden>
+        </div>
+        <div id="designCard"></div>
+
+        <div class="section-title">Offset Wells</div>
+        <div class="drop-zone" id="zone-offset">
+            <button class="btn btn-primary" onclick="pickFiles('offset')">Add offset surveys</button>
+            <span>or drop files here</span>
+            <input type="file" id="file-offset" accept=".csv,.tsv,.txt,.las,.xlsx,.xlsm,.xls" multiple hidden>
+        </div>
+        <div id="offsetCards"></div>
+        <div class="ann-help">CSV, LAS or Excel with MD, inclination and azimuth. <b>Set each offset's surface position</b> with Edit. Files are read in your browser and are not uploaded.</div>
+        <div class="button-row">
+            <button class="btn btn-success" onclick="loadSample()">Load sample wells</button>
+            <button class="btn btn-danger" onclick="clearAll()">Clear all</button>
+        </div>
+        <div id="warnings" class="plan-warnings" role="status"></div>
+
+        <div class="section-title">Separation Factor</div>
+        <div class="solver-box">
+            <div class="formula" id="formulaText"></div>
+            <div class="form-row">
+                <div class="form-group"><label for="inp-rDesign">Design hole radius (<span class="u-radius">m</span>)</label><input type="number" id="inp-rDesign" step="any" onchange="onParam('rDesign',this.value)"></div>
+                <div class="form-group"><label for="inp-rOffset">Offset hole radius (<span class="u-radius">m</span>)</label><input type="number" id="inp-rOffset" step="any" onchange="onParam('rOffset',this.value)"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="inp-warn">Warning below SF</label><input type="number" id="inp-warn" step="any" onchange="onParam('warn',this.value)"></div>
+                <div class="form-group"><label for="inp-crit">Critical below SF</label><input type="number" id="inp-crit" step="any" onchange="onParam('crit',this.value)"></div>
+            </div>
+            <div class="toggle-row">
+                <input type="checkbox" id="inp-useUncertainty" checked onchange="onParam('useUncertainty',this.checked)">
+                <label for="inp-useUncertainty" style="margin:0;cursor:pointer">Include positional uncertainty (simplified MWD estimate)</label>
+            </div>
+            <div id="uncertaintyOff" class="plan-warnings" hidden><div>⚠ Uncertainty is off: SF compares distance with hole size only and is not a collision-risk measure.</div></div>
+            <div id="uncertaintyFields">
+                <div class="form-row">
+                    <div class="form-group"><label for="inp-depthFactor">Depth factor (per unit MD)</label><input type="number" id="inp-depthFactor" step="0.0001" onchange="onParam('depthFactor',this.value)"></div>
+                    <div class="form-group"><label for="inp-incError">Inc error (deg)</label><input type="number" id="inp-incError" step="0.05" onchange="onParam('incError',this.value)"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="inp-aziError">Azi error (deg)</label><input type="number" id="inp-aziError" step="0.05" onchange="onParam('aziError',this.value)"></div>
+                    <div class="form-group"><label for="inp-sigma">Multiplier k</label><input type="number" id="inp-sigma" step="0.5" onchange="onParam('sigma',this.value)"></div>
+                </div>
+                <small class="model-note">Radius = RSS of depth, inclination and azimuth terms, each growing with MD. k = 1 uses it as computed. This is not an ISCWSA error model.</small>
+            </div>
+        </div>
+
+        <div id="designerSection" hidden>
+            <div class="section-title">Trajectory Designer (J profile)</div>
+            <div class="solver-box">
+                <div class="ann-help">Test a redesigned design well. The loaded survey is kept and compared automatically.</div>
+                <div class="form-row">
+                    <div class="form-group"><label for="td-kop">KOP (<span class="u-len">m</span>)</label><input type="number" id="td-kop" step="any" oninput="onDesignerInput()"></div>
+                    <div class="form-group"><label for="td-azi">Azimuth (deg)</label><input type="number" id="td-azi" step="any" oninput="onDesignerInput()"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="td-rate">Build rate (<span class="u-dls">deg/30m</span>)</label><input type="number" id="td-rate" step="any" oninput="onDesignerInput()"></div>
+                    <div class="form-group"><label for="td-inc">Target inc (deg)</label><input type="number" id="td-inc" step="any" oninput="onDesignerInput()"></div>
+                </div>
+                <div class="form-group"><label for="td-td">Total MD (<span class="u-len">m</span>)</label><input type="number" id="td-td" step="any" oninput="onDesignerInput()"></div>
+                <label class="check-line"><input type="checkbox" id="td-auto"> Apply automatically while typing</label>
+                <div id="designerStatus"></div>
+                <div class="button-row">
+                    <button class="btn btn-primary" onclick="applyDesign()">Apply designed profile</button>
+                    <button class="btn" id="btnResetDesign" onclick="resetDesign()">Back to survey</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Report Details &amp; Vertical Section</div>
+        <div class="form-row">
+            <div class="form-group"><label for="metaField">Field / location</label><input type="text" id="metaField" placeholder="optional"></div>
+            <div class="form-group"><label for="metaPreparedBy">Prepared by</label><input type="text" id="metaPreparedBy" placeholder="optional"></div>
+        </div>
+        <div class="form-group"><label for="inp-vsAz">Vertical section azimuth (deg)</label><input type="number" id="inp-vsAz" step="any" onchange="onParam('vsAz',this.value)"></div>
+
+        <div class="sidebar-footer">
+            <div class="sf-title">About This Tool</div>
+            <div class="sf-row"><strong>Developed by</strong>&nbsp; Ismail Harkat</div>
+            <div class="sf-row"><strong>Contact</strong>&nbsp; <a href="mailto:geoharkat@gmail.com">geoharkat@gmail.com</a></div>
+            <div class="sf-row"><strong>License</strong>&nbsp; <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a></div>
+            <div class="sf-copy">&copy; <span id="copyYear"></span> Ismail Harkat.<br>Screening tool: not a substitute for certified anti-collision software.</div>
+        </div>
     </div>
 
-    <!-- Map -->
-    <div class="tab-panel" id="panel-map">
-      <div class="empty" id="es-map">
-        <i class="fas fa-earth-africa"></i>
-        <h3>Load wells to see the map</h3>
-        <p>Enter a surface lat / lon in the sidebar, then load wells to plot their horizontal projections on the map.</p>
-      </div>
-      <div id="map-wrap" style="display:none; flex:1; flex-direction:column; gap:8px; min-height:0;">
-        <div class="map-legend" id="map-legend"></div>
-        <div id="map-container"></div>
-      </div>
+    <div class="main">
+        <div class="plots-area">
+            <div class="kpi-strip" id="kpiStrip"></div>
+            <div class="filter-row">
+                <label for="offsetFilter">Plots and table show</label>
+                <select id="offsetFilter" onchange="onOffsetFilter(this.value)"><option value="all">All offsets</option></select>
+            </div>
+            <div class="chart-card">
+                <div class="plot-header"><h3>Separation Factor vs Design MD</h3>
+                    <div class="plot-tools"><button class="btn btn-export" onclick="exportPlot('sf','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('sf','png')">PNG</button></div></div>
+                <div class="plot-container needs-scan" style="height:440px"><svg id="chartSF" class="cross" role="img" aria-label="Separation factor against design measured depth"></svg></div>
+            </div>
+            <div class="chart-card">
+                <div class="plot-header"><h3>Centre-to-Centre Distance vs Design MD</h3>
+                    <div class="plot-tools"><button class="btn btn-export" onclick="exportPlot('distance','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('distance','png')">PNG</button></div></div>
+                <div class="plot-container needs-scan" style="height:400px"><svg id="chartDistance" class="cross" role="img" aria-label="Distance to offset wells against design measured depth"></svg></div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-card">
+                    <div class="plot-header"><h3>Travelling Cylinder</h3>
+                        <div class="plot-tools">
+                            <select aria-label="Angle reference" onchange="onViewToggle('reference',this.value)"><option value="north">Grid north</option><option value="highside">High side</option></select>
+                            <select id="cylRadius" aria-label="Cylinder radius" onchange="onViewToggle('radius',this.value)"></select>
+                            <button class="btn btn-export" onclick="exportPlot('cylinder','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('cylinder','png')">PNG</button></div></div>
+                    <div class="plot-container needs-scan" style="height:560px"><svg id="chartCylinder" class="cross" role="img" aria-label="Travelling cylinder plot"></svg></div>
+                </div>
+                <div class="chart-card">
+                    <div class="plot-header"><h3>Plan View (North vs East)</h3>
+                        <div class="plot-tools"><button class="btn btn-ghost" onclick="resetPlot('chartPlan')">Reset view</button><button class="btn btn-export" onclick="exportPlot('plan','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('plan','png')">PNG</button></div></div>
+                    <div class="plot-container" style="height:560px"><svg id="chartPlan" class="pan" role="img" aria-label="Plan view of all wells"></svg></div>
+                    <div class="plot-hint">Drag to pan &middot; Ctrl + scroll to zoom &middot; Shift + drag to zoom a box &middot; double-click to reset</div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="plot-header"><h3>Vertical Section</h3>
+                    <div class="plot-tools"><label><input type="checkbox" checked onchange="onViewToggle('trueScale',this.checked)">1:1 scale</label><button class="btn btn-ghost" onclick="resetPlot('chartSection')">Reset view</button><button class="btn btn-export" onclick="exportPlot('section','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('section','png')">PNG</button></div></div>
+                <div class="plot-container" style="height:500px"><svg id="chartSection" class="pan" role="img" aria-label="Vertical section of all wells"></svg></div>
+            </div>
+            <div class="chart-card">
+                <div class="plot-header"><h3>3D Well Paths</h3>
+                    <div class="plot-tools"><label><input type="checkbox" checked onchange="onViewToggle('d3Full',this.checked)">From surface</label>
+                        <button class="btn btn-ghost" onclick="setView3d('iso')">Iso</button><button class="btn btn-ghost" onclick="setView3d('top')">Top</button><button class="btn btn-ghost" onclick="setView3d('north')">Look N</button><button class="btn btn-ghost" onclick="setView3d('east')">Look E</button>
+                        <button class="btn btn-export" onclick="exportPlot('view3d','svg')">SVG</button><button class="btn btn-export" onclick="exportPlot('view3d','png')">PNG</button></div></div>
+                <div class="plot-container" style="height:620px"><svg id="chart3d" class="pan" role="img" aria-label="Three-dimensional view of all wells"></svg></div>
+                <div class="plot-hint">Drag to rotate &middot; Ctrl + scroll to zoom &middot; double-click to reset</div>
+            </div>
+            <div class="chart-card">
+                <div class="plot-header"><h3>Surface Map</h3></div>
+                <div class="map-prompt" id="mapPrompt">
+                    <p>The map downloads tiles from OpenStreetMap, which tells that service the area you are viewing. It is loaded only when you ask for it.</p>
+                    <button class="btn btn-primary" onclick="showMap()">Show map</button>
+                </div>
+                <div class="map-box" id="mapBox" hidden></div>
+            </div>
+        </div>
+        <div class="table-container">
+            <div class="table-header">
+                <span class="table-title">Tables</span>
+                <div class="table-controls">
+                    <label for="tableSelect">Show</label>
+                    <select id="tableSelect" onchange="onTableChange(this.value)">
+                        <option value="summary">Offset summary</option>
+                        <option value="alerts">Alert intervals</option>
+                        <option value="scan">SF scan</option>
+                        <option value="stations">Well surveys</option>
+                    </select>
+                    <span id="stepControl" hidden><label for="stepSelect">MD step</label> <select id="stepSelect" onchange="onStepChange(this.value)"></select></span>
+                </div>
+                <span id="tableInfo" class="table-info"></span>
+            </div>
+            <div id="dataTable"></div>
+        </div>
     </div>
+</div>
 
-  </div><!-- tab-content -->
-</main>
-
-</div><!-- app-body -->
-
-<footer>
-  <span>Anti-Collision Analyst &mdash; powered by <a href="https://www.npmjs.com/package/welltraj" target="_blank">welltraj</a></span>
-  <span>Developed by <strong style="color:#94a3b8;">Ismail Harkat</strong> &middot; Senior Geologist</span>
+<footer class="footer">
+    <div class="footer-left"><span class="copy-symbol">&copy;</span><span class="author-name">Ismail Harkat</span><span>&mdash; Anti-Collision Analyst</span></div>
+    <div class="footer-center">
+        <a href="mailto:geoharkat@gmail.com">geoharkat@gmail.com</a><span class="separator">|</span>
+        <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a><span class="separator">|</span>
+        <span id="footerYear"></span>
+    </div>
+    <div class="footer-right"><span class="badge badge-version">v2.0</span><span>Screening only</span></div>
 </footer>
 
-<div id="toast-box"></div>
-
-<script>
-/* ================================================================
-   Anti-Collision Analyst — application logic
-   Powered by WellTraj  (https://www.npmjs.com/package/welltraj)
-================================================================ */
-
-/* ─── colour palette for offset wells ─── */
-const COLORS = ['#f97316','#3b82f6','#a855f7','#ec4899','#eab308',
-                '#06b6d4','#84cc16','#f43f5e','#8b5cf6','#10b981'];
-
-/* ─── application state ─── */
-let designWell        = null;  // { name, stations[], originalStations[], survey, lat, lon, isDesigned }
-let offsetWells       = [];    // [{ name, stations[], survey, lat, lon }]
-let scanResults       = null;  // CollisionRecord[]
-let distData          = null;  // [{md, distances:{wName:number}}]
-let originalDesignData = null; // { label, stations, scanResults, distData, minSF } — locked for PDF
-let _designerTimer    = null;
-
-/* ─── drag-and-drop wiring ─── */
-wireDrop('dz-design', files => parseAndSetDesign(files[0]));
-wireDrop('dz-offset', files => Array.from(files).forEach(f => parseAndAddOffset(f)));
-
-function wireDrop(id, handler) {
-  const el = document.getElementById(id);
-  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
-  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
-  el.addEventListener('drop', e => {
-    e.preventDefault();
-    el.classList.remove('drag-over');
-    handler(e.dataTransfer.files);
-  });
-}
-
-/* ─── file-input wrappers ─── */
-function onDesignFile(inp) {
-  if (inp.files[0]) parseAndSetDesign(inp.files[0]);
-  inp.value = '';
-}
-function onOffsetFiles(inp) {
-  Array.from(inp.files).forEach(f => parseAndAddOffset(f));
-  inp.value = '';
-}
-
-/* ─── parse CSV / Excel → row array ─── */
-function parseFile(file, cb) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (['xlsx','xls'].includes(ext)) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'binary' });
-        cb(null, XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: true }));
-      } catch (err) { cb(err); }
-    };
-    reader.readAsBinaryString(file);
-  } else {
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true, dynamicTyping: true,
-      complete: r => cb(null, r.data),
-      error:    e => cb(e)
-    });
-  }
-}
-
-/* ─── map header aliases to {md, inc, azi} stations ─── */
-function rowsToStations(rows) {
-  if (!rows || rows.length === 0) return null;
-  const keys  = Object.keys(rows[0]);
-  const upper = keys.map(k => k.trim().toUpperCase());
-
-  function col(...hints) {
-    for (const h of hints) {
-      const idx = upper.findIndex(u => u === h || u.startsWith(h));
-      if (idx >= 0) return keys[idx];
-    }
-    return null;
-  }
-
-  const mdK  = col('MD','MEASURED_DEPTH','DEPTH','DEPT','DEPTMD');
-  const incK = col('INC','INCL','INCLINATION');
-  const aziK = col('AZI','AZ','AZIM','AZIMUTH');
-
-  if (!mdK || !incK || !aziK) return null;
-
-  const stations = rows
-    .map(r => ({ md: +r[mdK], inc: +r[incK], azi: +r[aziK] }))
-    .filter(s => !isNaN(s.md) && !isNaN(s.inc) && !isNaN(s.azi));
-
-  return stations.length >= 2 ? stations : null;
-}
-
-/* ─── build Survey object from stations ─── */
-function makeSurvey(name, stations) {
-  const vsAz = parseFloat(document.getElementById('inp-vsaz').value) || 0;
-  const s = new WellTraj.Survey({ name, vsAzimuth: vsAz });
-  s.setStations(stations);
-  return s;
-}
-
-/* ─── default coordinates from the field-location inputs ─── */
-function defaultLat() { return +document.getElementById('inp-reflat').value || 30.45; }
-function defaultLon() { return +document.getElementById('inp-reflon').value || 5.82; }
-
-/* ─── load / replace design well ─── */
-function parseAndSetDesign(file) {
-  parseFile(file, (err, rows) => {
-    if (err) return toast('Read error: ' + err.message, 'err');
-    const st = rowsToStations(rows);
-    if (!st) return toast('Cannot detect MD / INC / AZI columns in ' + file.name, 'err');
-    const name = stripExt(file.name);
-    designWell = { name, stations: st, originalStations: [...st],
-                   survey: makeSurvey(name, st),
-                   lat: defaultLat(), lon: defaultLon(), isDesigned: false };
-    originalDesignData = null;
-    document.getElementById('orig-lock-badge').style.display = 'none';
-    document.getElementById('btn-reset-orig').disabled = true;
-    resetResults();
-    initTrajDesigner(st);
-    showEl('sec-traj-designer');
-    refreshWellList();
-    draw3D(); drawPlan(); refreshMap();
-    checkReady();
-    toast('Design well loaded: ' + name + ' (' + st.length + ' stations)', 'ok');
-  });
-}
-
-/* ─── load / add offset well ─── */
-function parseAndAddOffset(file) {
-  parseFile(file, (err, rows) => {
-    if (err) return toast('Read error: ' + err.message, 'err');
-    const st = rowsToStations(rows);
-    if (!st) return toast('Cannot detect MD / INC / AZI columns in ' + file.name, 'err');
-    let name = stripExt(file.name);
-    const dup = offsetWells.filter(o => o.name.startsWith(name)).length;
-    if (dup) name = name + ' (' + (dup + 1) + ')';
-    /* default to design well's coordinates if available */
-    const lat = designWell ? designWell.lat : defaultLat();
-    const lon = designWell ? designWell.lon : defaultLon();
-    offsetWells.push({ name, stations: st, survey: makeSurvey(name, st), lat, lon });
-    resetResults();
-    refreshWellList();
-    draw3D(); drawPlan(); refreshMap();
-    checkReady();
-    toast('Offset well added: ' + name + ' (' + st.length + ' stations)', 'ok');
-  });
-}
-
-/* ─── remove wells ─── */
-function removeDesign() {
-  designWell = null; originalDesignData = null;
-  hideEl('sec-traj-designer');
-  resetResults(); refreshWellList(); draw3D(); drawPlan(); refreshMap(); checkReady();
-}
-function removeOffset(i) {
-  offsetWells.splice(i, 1);
-  resetResults(); refreshWellList(); draw3D(); drawPlan(); refreshMap(); checkReady();
-}
-
-/* ─── refresh well list (editable cards) ─── */
-function refreshWellList() {
-  const list = document.getElementById('well-list');
-  if (!designWell && offsetWells.length === 0) { list.style.display = 'none'; return; }
-  list.style.display = 'flex';
-
-  let html = '';
-
-  if (designWell) {
-    const last = designWell.survey.get(-1);
-    const mb = designWell.isDesigned
-      ? '<span class="mode-badge mb-designed">DESIGNED</span>'
-      : '<span class="mode-badge mb-original">CSV</span>';
-    html += `<div class="well-card" id="wcard-design">
-      <div class="wcard-top">
-        <div class="chip-icon" style="background:rgba(13,148,136,0.14);color:#0d9488;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">
-          <i class="fas fa-circle-dot"></i>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:1px;">
-            <span class="chip-name">${xe(designWell.name)}</span>${mb}
-          </div>
-          <div class="chip-stats">${designWell.stations.length} sta &middot; TVD ${last ? fmt(last.tvd,0) : '—'} m &middot; ${fmt(designWell.lat,4)}°N ${fmt(designWell.lon,4)}°E</div>
-        </div>
-        <div class="wcard-edit-btn" id="wedit-btn-design" onclick="toggleWellEdit('design')" title="Edit name &amp; coordinates">
-          <i class="fas fa-pencil"></i>
-        </div>
-        <div class="chip-del" onclick="removeDesign()" title="Remove" style="margin-left:2px;"><i class="fas fa-xmark"></i></div>
-      </div>
-      <div class="wcard-body" id="wcard-body-design">
-        <div class="field">
-          <label>Well Name</label>
-          <input type="text" value="${xe(designWell.name)}" oninput="updateWellMeta('design',-1,'name',this.value)">
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Surface Lat (°)</label>
-            <input type="number" value="${designWell.lat}" step="0.0001" oninput="updateWellMeta('design',-1,'lat',+this.value)">
-          </div>
-          <div class="field">
-            <label>Surface Lon (°)</label>
-            <input type="number" value="${designWell.lon}" step="0.0001" oninput="updateWellMeta('design',-1,'lon',+this.value)">
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  offsetWells.forEach((ow, i) => {
-    const last = ow.survey.get(-1);
-    const col  = COLORS[i % COLORS.length];
-    html += `<div class="well-card" id="wcard-off-${i}" style="border-left:3px solid ${col};">
-      <div class="wcard-top">
-        <div class="chip-icon" style="background:${colA(col,.14)};color:${col};width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">
-          <i class="fas fa-circle"></i>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div class="chip-name" style="margin-bottom:1px;">${xe(ow.name)}</div>
-          <div class="chip-stats">${ow.stations.length} sta &middot; TVD ${last ? fmt(last.tvd,0) : '—'} m &middot; ${fmt(ow.lat,4)}°N ${fmt(ow.lon,4)}°E</div>
-        </div>
-        <div class="wcard-edit-btn" id="wedit-btn-off-${i}" onclick="toggleWellEdit('off-${i}')" title="Edit name &amp; coordinates">
-          <i class="fas fa-pencil"></i>
-        </div>
-        <div class="chip-del" onclick="removeOffset(${i})" title="Remove" style="margin-left:2px;"><i class="fas fa-xmark"></i></div>
-      </div>
-      <div class="wcard-body" id="wcard-body-off-${i}">
-        <div class="field">
-          <label>Well Name</label>
-          <input type="text" value="${xe(ow.name)}" oninput="updateWellMeta('offset',${i},'name',this.value)">
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Surface Lat (°)</label>
-            <input type="number" value="${ow.lat}" step="0.0001" oninput="updateWellMeta('offset',${i},'lat',+this.value)">
-          </div>
-          <div class="field">
-            <label>Surface Lon (°)</label>
-            <input type="number" value="${ow.lon}" step="0.0001" oninput="updateWellMeta('offset',${i},'lon',+this.value)">
-          </div>
-        </div>
-      </div>
-    </div>`;
-  });
-
-  list.innerHTML = html;
-}
-
-/* ─── toggle editable body on a well card ─── */
-function toggleWellEdit(id) {
-  const body = document.getElementById('wcard-body-' + id);
-  const btn  = document.getElementById('wedit-btn-' + id);
-  if (!body) return;
-  const open = body.classList.toggle('open');
-  if (btn) btn.classList.toggle('open', open);
-}
-
-/* ─── update well name / lat / lon in-place (no full re-render) ─── */
-function updateWellMeta(type, idx, field, value) {
-  const w = type === 'design' ? designWell : offsetWells[idx];
-  if (!w) return;
-  w[field] = value;
-  if (field === 'name' && w.survey) w.survey.name = value;
-
-  /* update displayed name/stats without closing the edit panel */
-  const prefix = type === 'design' ? 'wcard-design' : 'wcard-off-' + idx;
-  const nameEl  = document.querySelector(`#${prefix} .chip-name`);
-  const statsEl = document.querySelector(`#${prefix} .chip-stats`);
-  const last    = w.survey ? w.survey.get(-1) : null;
-  if (nameEl && field === 'name') nameEl.textContent = value;
-  if (statsEl && field !== 'name')
-    statsEl.textContent = `${w.stations.length} sta · TVD ${last ? fmt(last.tvd,0) : '—'} m · ${fmt(w.lat,4)}°N ${fmt(w.lon,4)}°E`;
-
-  if (field !== 'name') refreshMap();
-}
-
-/* ─── ISCWSA toggle ─── */
-function toggleIscwsa(on) {
-  document.getElementById('iscwsa-block').classList.toggle('open', on);
-}
-
-/* ─── enable scan button only when ready ─── */
-function checkReady() {
-  document.getElementById('btn-scan').disabled = !(designWell && offsetWells.length > 0);
-}
-
-/* ─── reset result state ─── */
-function resetResults() {
-  scanResults = null; distData = null;
-  document.getElementById('sec-summary').style.display = 'none';
-  showEl('es-sf');    hideEl('plt-sf');
-  showEl('es-dist');  hideEl('plt-dist');
-  showEl('es-table'); hideEl('tbl-wrap');
-  document.getElementById('btn-xl').disabled  = true;
-  document.getElementById('btn-pdf').disabled = true;
-}
-
-/* ─── RUN SCAN ─── */
-function runScan() {
-  if (!designWell || !offsetWells.length) return;
-
-  /* rebuild surveys with current vsAzimuth */
-  const vsAz = parseFloat(document.getElementById('inp-vsaz').value) || 0;
-  designWell.survey = makeSurvey(designWell.name, designWell.stations);
-  offsetWells.forEach(ow => { ow.survey = makeSurvey(ow.name, ow.stations); });
-
-  const useIscwsa = document.getElementById('tog-iscwsa').checked;
-  const mwdErrors = {
-    depthFactor: parseFloat(document.getElementById('inp-ef-d').value) || 0.0035,
-    incError:    parseFloat(document.getElementById('inp-ef-i').value) || 0.2,
-    aziError:    parseFloat(document.getElementById('inp-ef-a').value) || 0.5
-  };
-  /* Shift each offset well's survey results by its surface location offset
-     relative to the design well, so distances are computed in a common frame. */
-  const offRadius = parseFloat(document.getElementById('inp-or').value) || 0.15;
-  const offsets = offsetWells.map(ow => {
-    const off  = wellOffset(ow);
-    const raw  = ow.survey.getAll();
-    const results = (off.n === 0 && off.e === 0)
-      ? raw
-      : raw.map(r => ({ ...r, north: r.north + off.n, east: r.east + off.e }));
-    return { name: ow.name, results, radius: offRadius };
-  });
-
-  try {
-    scanResults = WellTraj.scanAntiCollision(designWell.survey, offsets, { useIscwsa, mwdErrors });
-    distData    = WellTraj.distanceProfile(designWell.survey, offsets);
-  } catch (e) {
-    return toast('Scan error: ' + e.message, 'err');
-  }
-
-  drawSummary();
-  drawSFChart();
-  drawDistChart();
-  draw3D();
-  drawPlan();
-  drawTable();
-  refreshMap();
-  updateDesignerSF();
-
-  document.getElementById('btn-xl').disabled  = false;
-  document.getElementById('btn-pdf').disabled = false;
-  toast('Scan complete — ' + scanResults.length + ' records', 'ok');
-}
-
-/* ─── Summary cards ─── */
-function drawSummary() {
-  if (!scanResults.length) return;
-  const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-  const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-  const min = scanResults.reduce((a, b) => b.sf < a.sf ? b : a);
-  const nc  = scanResults.filter(r => r.sf < sfC).length;
-  const nw  = scanResults.filter(r => r.sf >= sfC && r.sf < sfW).length;
-  const sfCls = min.sf < sfC ? 'sc-danger' : min.sf < sfW ? 'sc-warn' : 'sc-safe';
-
-  document.getElementById('sum-grid').innerHTML = `
-    <div class="stat-card ${sfCls}">
-      <div class="stat-label">Min SF</div>
-      <div class="stat-value">${fmt(min.sf,2)}</div>
-      <div class="stat-sub">MD ${fmt(min.designMD,0)} m · ${xe(min.wellName||'?')}</div>
-    </div>
-    <div class="stat-card sc-neutral">
-      <div class="stat-label">Min Distance</div>
-      <div class="stat-value">${fmt(min.distance,1)}</div>
-      <div class="stat-sub">m centre-to-centre</div>
-    </div>
-    <div class="stat-card sc-danger">
-      <div class="stat-label">Critical</div>
-      <div class="stat-value">${nc}</div>
-      <div class="stat-sub">SF &lt; ${sfC}</div>
-    </div>
-    <div class="stat-card sc-warn">
-      <div class="stat-label">Warning</div>
-      <div class="stat-value">${nw}</div>
-      <div class="stat-sub">SF ${sfC} – ${sfW}</div>
-    </div>`;
-  document.getElementById('sec-summary').style.display = 'block';
-}
-
-/* ─── SF Profile chart ─── */
-function drawSFChart() {
-  if (!scanResults.length) return;
-  const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-  const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-
-  const byWell = {};
-  scanResults.forEach(r => {
-    const k = r.wellName || 'Offset';
-    if (!byWell[k]) byWell[k] = { md:[], sf:[], sfI:[] };
-    byWell[k].md.push(r.designMD);
-    byWell[k].sf.push(r.sf);
-    byWell[k].sfI.push(r.sfIscwsa ?? null);
-  });
-
-  const traces = [];
-  Object.keys(byWell).forEach((wn, i) => {
-    const d = byWell[wn]; const col = COLORS[i % COLORS.length];
-    traces.push({
-      x: d.md, y: d.sf, mode: 'lines', name: wn,
-      line: { color: col, width: 2.5 },
-      hovertemplate: '<b>%{fullData.name}</b><br>MD %{x:.0f} m<br>SF %{y:.3f}<extra></extra>'
-    });
-    if (d.sfI.some(v => v !== null))
-      traces.push({
-        x: d.md, y: d.sfI, mode: 'lines',
-        name: wn + ' (ISCWSA)',
-        line: { color: col, width: 1.5, dash: 'dot' },
-        hovertemplate: '<b>%{fullData.name}</b><br>MD %{x:.0f} m<br>SF %{y:.3f}<extra></extra>'
-      });
-  });
-
-  const maxMD = Math.max(...scanResults.map(r => r.designMD));
-  traces.push({ x:[0,maxMD], y:[sfW,sfW], mode:'lines', name:'Warn (' + sfW + ')', line:{color:'#d97706',width:1.5,dash:'dash'} });
-  traces.push({ x:[0,maxMD], y:[sfC,sfC], mode:'lines', name:'Critical (' + sfC + ')', line:{color:'#dc2626',width:1.5,dash:'dash'} });
-
-  Plotly.react('plt-sf', traces, sfLayout('Separation Factor'), PLT_CFG);
-  showEl('plt-sf'); hideEl('es-sf');
-}
-
-/* ─── Distance Profile chart ─── */
-function drawDistChart() {
-  if (!distData || !distData.length) return;
-  const wNames = Object.keys(distData[0].distances);
-  const traces = wNames.map((wn, i) => ({
-    x: distData.map(d => d.md),
-    y: distData.map(d => d.distances[wn]),
-    mode: 'lines', name: wn,
-    line: { color: COLORS[i % COLORS.length], width: 2.5 },
-    hovertemplate: '<b>%{fullData.name}</b><br>MD %{x:.0f} m<br>Dist %{y:.1f} m<extra></extra>'
-  }));
-
-  Plotly.react('plt-dist', traces, sfLayout('Distance (m)'), PLT_CFG);
-  showEl('plt-dist'); hideEl('es-dist');
-}
-
-/* ─── Surface offset of a well vs the design well (metres N/E) ─── */
-function wellOffset(well) {
-  if (!designWell || !well || well === designWell) return { n: 0, e: 0 };
-  const cosLat = Math.cos(designWell.lat * Math.PI / 180);
-  return {
-    n: (well.lat - designWell.lat) * 111320,
-    e: (well.lon - designWell.lon) * 111320 * cosLat
-  };
-}
-
-/* ─── 3D trajectory view ─── */
-function draw3D() {
-  if (!designWell) return;
-  const traces = [];
-
-  /* Design well — reference origin (0,0) */
-  const dRes = designWell.survey.getAll();
-  traces.push({
-    type: 'scatter3d', mode: 'lines+markers',
-    x: dRes.map(r => r.east),
-    y: dRes.map(r => r.north),
-    z: dRes.map(r => r.tvd),          /* positive TVD; axis reversed below → surface at top */
-    name: designWell.name,
-    line:   { color: '#0d9488', width: 4 },
-    marker: { size: 2, color: '#0d9488' },
-    hovertemplate: '<b>' + xe(designWell.name) + '</b><br>MD %{customdata:.0f} m<br>TVD %{text} m<extra></extra>',
-    customdata: dRes.map(r => r.md),
-    text:       dRes.map(r => fmt(r.tvd, 0))
-  });
-
-  /* Offset wells — shifted by surface coordinate difference */
-  offsetWells.forEach((ow, i) => {
-    const oRes = ow.survey.getAll();
-    const col  = COLORS[i % COLORS.length];
-    const off  = wellOffset(ow);
-    traces.push({
-      type: 'scatter3d', mode: 'lines+markers',
-      x: oRes.map(r => r.east  + off.e),
-      y: oRes.map(r => r.north + off.n),
-      z: oRes.map(r => r.tvd),
-      name: ow.name,
-      line:   { color: col, width: 2.5 },
-      marker: { size: 1.5, color: col },
-      hovertemplate: '<b>' + xe(ow.name) + '</b><br>MD %{customdata:.0f} m<br>TVD %{text} m<extra></extra>',
-      customdata: oRes.map(r => r.md),
-      text:       oRes.map(r => fmt(r.tvd, 0))
-    });
-  });
-
-  const layout3d = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    scene: {
-      bgcolor: '#0f172a',
-      xaxis: { title: 'East (m)',  color: '#94a3b8', gridcolor: '#1e293b', zerolinecolor: '#334155' },
-      yaxis: { title: 'North (m)', color: '#94a3b8', gridcolor: '#1e293b', zerolinecolor: '#334155' },
-      /* autorange:'reversed' puts TVD=0 (surface) at top, depth increases downward */
-      zaxis: { title: 'TVD (m)',   color: '#94a3b8', gridcolor: '#1e293b', zerolinecolor: '#334155',
-               autorange: 'reversed' },
-      aspectmode: 'data'
-    },
-    margin: { t: 10, r: 10, b: 10, l: 10 },
-    legend: { font: { size: 11, color: '#e2e8f0' }, bgcolor: 'rgba(15,23,42,0.8)', bordercolor: '#334155' },
-    font: { family: 'DM Sans, system-ui', color: '#e2e8f0' }
-  };
-
-  Plotly.react('plt-3d', traces, layout3d, PLT_CFG);
-  showEl('plt-3d'); hideEl('es-3d');
-}
-
-/* ─── Plan View (North / East) ─── */
-function drawPlan() {
-  if (!designWell) return;
-  const traces = [];
-
-  /* Design well — reference origin */
-  const dRes = designWell.survey.getAll();
-  traces.push({
-    type: 'scatter', mode: 'lines+markers',
-    x: dRes.map(r => r.east),
-    y: dRes.map(r => r.north),
-    name: designWell.name,
-    line:   { color: '#0d9488', width: 2.5 },
-    marker: { size: 3, color: '#0d9488' },
-    hovertemplate: '<b>' + xe(designWell.name) + '</b><br>E %{x:.1f} m<br>N %{y:.1f} m<extra></extra>'
-  });
-
-  /* Offset wells — shifted by surface coordinate difference */
-  offsetWells.forEach((ow, i) => {
-    const oRes = ow.survey.getAll();
-    const col  = COLORS[i % COLORS.length];
-    const off  = wellOffset(ow);
-    traces.push({
-      type: 'scatter', mode: 'lines+markers',
-      x: oRes.map(r => r.east  + off.e),
-      y: oRes.map(r => r.north + off.n),
-      name: ow.name,
-      line:   { color: col, width: 2 },
-      marker: { size: 2.5, color: col },
-      hovertemplate: '<b>' + xe(ow.name) + '</b><br>E %{x:.1f} m<br>N %{y:.1f} m<extra></extra>'
-    });
-  });
-
-  /* Surface location dot for each well */
-  const shapes = [{ type: 'circle', xref: 'x', yref: 'y',
-    x0: -4, y0: -4, x1: 4, y1: 4,
-    line: { color: '#0d9488', width: 2 },
-    fillcolor: 'rgba(13,148,136,0.2)' }];
-
-  offsetWells.forEach((ow, i) => {
-    const off = wellOffset(ow);
-    if (Math.abs(off.n) < 0.1 && Math.abs(off.e) < 0.1) return; /* skip if same pad */
-    const col = COLORS[i % COLORS.length];
-    shapes.push({ type: 'circle', xref: 'x', yref: 'y',
-      x0: off.e - 4, y0: off.n - 4, x1: off.e + 4, y1: off.n + 4,
-      line: { color: col, width: 1.5 },
-      fillcolor: colA(col, 0.15) });
-  });
-
-  const layoutPlan = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  '#f8fafc',
-    margin: { t: 20, r: 20, b: 55, l: 65 },
-    xaxis: { title: 'East (m)',  gridcolor: '#e2e8f0', tickfont: { size: 11 }, scaleanchor: 'y', scaleratio: 1 },
-    yaxis: { title: 'North (m)', gridcolor: '#e2e8f0', tickfont: { size: 11 } },
-    legend: { x: 1, xanchor: 'right', y: 1, bgcolor: 'rgba(255,255,255,0.9)', font: { size: 11 } },
-    font:   { family: 'DM Sans, system-ui', size: 12 },
-    shapes
-  };
-
-  Plotly.react('plt-plan', traces, layoutPlan, PLT_CFG);
-  showEl('plt-plan'); hideEl('es-plan');
-}
-
-/* ─── Scan Table ─── */
-function drawTable() {
-  if (!scanResults.length) return;
-  const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-  const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-
-  const wNames = [...new Set(scanResults.map(r => r.wellName || 'Offset'))];
-
-  /* colour legend */
-  document.getElementById('tbl-legend').innerHTML =
-    wNames.map((wn, i) =>
-      `<span class="leg-item"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${xe(wn)}</span>`
-    ).join('') +
-    '&nbsp;&nbsp;' +
-    '<span class="leg-item"><span class="badge bg-safe">SAFE</span>&nbsp;SF ≥ ' + sfW + '</span>' +
-    '<span class="leg-item"><span class="badge bg-warn">WARN</span>&nbsp;SF ' + sfC + '–' + sfW + '</span>' +
-    '<span class="leg-item"><span class="badge bg-danger">CRIT</span>&nbsp;SF &lt; ' + sfC + '</span>';
-
-  document.getElementById('tbl-body').innerHTML = scanResults.map(r => {
-    const rc = r.sf < sfC ? 'row-danger' : r.sf < sfW ? 'row-warn' : 'row-safe';
-    const bc = r.sf < sfC ? 'bg-danger'  : r.sf < sfW ? 'bg-warn'  : 'bg-safe';
-    const bl = r.sf < sfC ? 'CRIT'        : r.sf < sfW ? 'WARN'     : 'SAFE';
-    const wi = wNames.indexOf(r.wellName || 'Offset');
-    const dc = COLORS[wi % COLORS.length];
-    return `<tr class="${rc}">
-      <td>${fmt(r.designMD,0)}</td>
-      <td><span style="display:inline-flex;align-items:center;gap:5px;">
-        <span style="width:8px;height:8px;border-radius:50%;background:${dc};display:inline-block;flex-shrink:0;"></span>
-        ${xe(r.wellName||'Offset')}
-      </span></td>
-      <td>${fmt(r.offsetMD,0)}</td>
-      <td>${fmt(r.distance,2)}</td>
-      <td style="font-weight:700;">${fmt(r.sf,3)}</td>
-      <td>${r.sfIscwsa != null ? fmt(r.sfIscwsa,3) : '—'}</td>
-      <td><span class="badge ${bc}">${bl}</span></td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('tbl-wrap').style.display = 'flex';
-  hideEl('es-table');
-}
-
-/* ─── Tab switching ─── */
-function switchTab(id) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-'   + id).classList.add('active');
-  document.getElementById('panel-' + id).classList.add('active');
-  setTimeout(() => {
-    ['plt-sf','plt-dist','plt-3d','plt-plan'].forEach(pid => {
-      const el = document.getElementById(pid);
-      if (el && el.style.display !== 'none') Plotly.Plots.resize(el);
-    });
-    if (id === 'map') refreshMap();
-  }, 80);
-}
-
-/* ─── Export Excel ─── */
-function exportExcel() {
-  if (!scanResults) return;
-  const wb = XLSX.utils.book_new();
-
-  /* scan sheet */
-  const scanRows = [
-    ['Design MD (m)','Offset Well','Offset MD (m)','Distance (m)','SF','SF ISCWSA'],
-    ...scanResults.map(r => [
-      r.designMD, r.wellName||'Offset', r.offsetMD,
-      +r.distance.toFixed(3), +r.sf.toFixed(4),
-      r.sfIscwsa != null ? +r.sfIscwsa.toFixed(4) : ''
-    ])
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scanRows), 'Anti-Collision');
-
-  /* distance profile sheet */
-  if (distData && distData.length) {
-    const wn  = Object.keys(distData[0].distances);
-    const dpR = [['MD (m)', ...wn.map(n => n + ' Dist (m)')],
-                 ...distData.map(d => [d.md, ...wn.map(n => +d.distances[n].toFixed(2))])];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dpR), 'Distance Profile');
-  }
-
-  XLSX.writeFile(wb, 'anti_collision_' + stamp() + '.xlsx');
-  toast('Excel exported', 'ok');
-}
-
-/* ─── Export PDF (supports original + redesigned trajectory comparison) ─── */
-function exportPDF() {
-  if (!scanResults) return;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-  const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-  const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-  const hasOrig = !!(originalDesignData && originalDesignData.scanResults);
-  const currMin = scanResults.reduce((a,b) => b.sf < a.sf ? b : a);
-  const dName   = designWell ? designWell.name : '—';
-  const offNames = offsetWells.map(o => o.name).join(', ');
-
-  /* ── Page 1 : Cover + Comparison summary (if original locked) ── */
-  _pdfHeader(doc, 'Anti-Collision Analysis Report',
-    'Design: ' + dName + '   |   Offsets: ' + offNames);
-
-  let y = 30;
-
-  if (hasOrig) {
-    const origMin = originalDesignData.scanResults.reduce((a,b) => b.sf < a.sf ? b : a);
-    const sfDelta = currMin.sf - origMin.sf;
-    const pctImprove = (sfDelta / origMin.sf * 100);
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(15,23,42);
-    doc.text('TRAJECTORY COMPARISON SUMMARY', 10, y); y += 6;
-
-    doc.autoTable({
-      startY: y,
-      head: [['Metric', 'Original Trajectory', 'Redesigned Trajectory', 'Change']],
-      body: [
-        ['Minimum Separation Factor',
-          fmt(origMin.sf,3), fmt(currMin.sf,3),
-          (sfDelta >= 0 ? '+' : '') + fmt(sfDelta,3) + ' (' + (pctImprove >= 0 ? '+' : '') + pctImprove.toFixed(1) + '%)'],
-        ['Critical stations  SF < ' + sfC,
-          originalDesignData.scanResults.filter(r=>r.sf<sfC).length,
-          scanResults.filter(r=>r.sf<sfC).length,
-          (scanResults.filter(r=>r.sf<sfC).length - originalDesignData.scanResults.filter(r=>r.sf<sfC).length)],
-        ['Warning stations  SF < ' + sfW,
-          originalDesignData.scanResults.filter(r=>r.sf<sfW&&r.sf>=sfC).length,
-          scanResults.filter(r=>r.sf<sfW&&r.sf>=sfC).length,
-          (scanResults.filter(r=>r.sf<sfW&&r.sf>=sfC).length - originalDesignData.scanResults.filter(r=>r.sf<sfW&&r.sf>=sfC).length)],
-        ['MD at min SF (m)', fmt(origMin.designMD,0), fmt(currMin.designMD,0), '—'],
-        ['Min distance (m)', fmt(origMin.distance,2), fmt(currMin.distance,2), '—'],
-      ],
-      theme: 'grid',
-      headStyles: { fillColor:[15,23,42], textColor:255, fontSize:8, fontStyle:'bold' },
-      bodyStyles: { fontSize:8 },
-      didParseCell: d => {
-        if (d.section === 'body' && d.column.index === 3) {
-          const v = String(d.cell.raw);
-          if (v.startsWith('+') && v !== '+0') d.cell.styles.textColor = [5,150,105];
-          else if (v.startsWith('-')) d.cell.styles.textColor = [220,38,38];
-        }
-      },
-      margin: { left:10, right:10 }
-    });
-  } else {
-    /* no original locked — single-trajectory summary */
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(30,41,59);
-    doc.text('Min SF: ' + fmt(currMin.sf,3) +
-      '   at MD ' + fmt(currMin.designMD,0) + ' m' +
-      '   Min distance: ' + fmt(currMin.distance,2) + ' m' +
-      '   Well: ' + (currMin.wellName||'?'), 10, y);
-  }
-
-  /* ── Page 2 : Current scan results ── */
-  doc.addPage();
-  const currLabel = hasOrig
-    ? 'Redesigned Trajectory — Anti-Collision Scan'
-    : 'Anti-Collision Scan Results';
-  const currSub = dName + (designWell && designWell.isDesigned ? '  [DESIGNED]' : '') +
-    '   |   ' + offNames;
-  _pdfHeader(doc, currLabel, currSub);
-  _pdfScanTable(doc, scanResults, 30, sfW, sfC);
-
-  /* ── Page 3+ : Original scan results (if locked) ── */
-  if (hasOrig) {
-    doc.addPage();
-    _pdfHeader(doc, 'Original Trajectory — Anti-Collision Scan',
-      originalDesignData.label + '   |   ' + offNames);
-    _pdfScanTable(doc, originalDesignData.scanResults, 30, sfW, sfC);
-  }
-
-  _pdfFooter(doc);
-  doc.save('anti_collision_' + stamp() + '.pdf');
-  toast('PDF exported' + (hasOrig ? ' (original + redesigned)' : ''), 'ok');
-}
-
-function _pdfHeader(doc, title, sub) {
-  doc.setFillColor(15,23,42);
-  doc.rect(0,0,297,22,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
-  doc.text(title, 10, 13);
-  doc.setFontSize(8); doc.setTextColor(148,163,184);
-  doc.text(sub, 10, 19);
-  doc.setFont('helvetica','normal');
-  doc.text(new Date().toLocaleString(), 287, 13, { align:'right' });
-}
-
-function _pdfScanTable(doc, results, startY, sfW, sfC) {
-  const min = results.reduce((a,b) => b.sf < a.sf ? b : a);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(30,41,59);
-  doc.text('Min SF: ' + fmt(min.sf,3) +
-    '   MD: ' + fmt(min.designMD,0) + ' m' +
-    '   Distance: ' + fmt(min.distance,2) + ' m' +
-    '   Well: ' + (min.wellName||'?'), 10, startY - 3);
-  doc.autoTable({
-    startY,
-    head: [['Design MD (m)','Offset Well','Offset MD (m)','Distance (m)','SF','SF ISCWSA','Status']],
-    body: results.map(r => {
-      const st = r.sf < sfC ? 'CRITICAL' : r.sf < sfW ? 'WARNING' : 'SAFE';
-      return [fmt(r.designMD,0), r.wellName||'Offset', fmt(r.offsetMD,0),
-              fmt(r.distance,2), fmt(r.sf,4),
-              r.sfIscwsa != null ? fmt(r.sfIscwsa,4) : '—', st];
-    }),
-    theme: 'grid',
-    headStyles: { fillColor:[15,23,42], textColor:255, fontSize:7.5, fontStyle:'bold' },
-    bodyStyles: { fontSize:7.5 },
-    didParseCell: d => {
-      if (d.section === 'body' && d.column.index === 6) {
-        if (d.cell.raw === 'CRITICAL')  d.cell.styles.textColor = [220,38,38];
-        else if (d.cell.raw === 'WARNING') d.cell.styles.textColor = [217,119,6];
-        else d.cell.styles.textColor = [5,150,105];
-      }
-    },
-    margin: { left:10, right:10 }
-  });
-}
-
-function _pdfFooter(doc) {
-  const n = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= n; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7); doc.setTextColor(100,116,139);
-    doc.text('Developed by Ismail Harkat · Senior Geologist · Anti-Collision Analyst powered by welltraj', 10, 208);
-    doc.text('Page ' + i + ' of ' + n, 287, 208, { align:'right' });
-  }
-}
-
-/* ════════════════════════════════════════════════════
-   TRAJECTORY DESIGNER
-════════════════════════════════════════════════════ */
-
-/* Populate designer inputs by reading the loaded CSV survey */
-function initTrajDesigner(stations) {
-  if (!stations || stations.length < 2) return;
-
-  /* KOP = MD before first inclination increase */
-  let kop = 0;
-  for (let i = 1; i < stations.length; i++) {
-    if (stations[i].inc > stations[i-1].inc + 0.5) { kop = stations[i-1].md; break; }
-  }
-
-  const maxInc = Math.max(...stations.map(s => s.inc));
-
-  /* modal azimuth */
-  const azCnt = {};
-  stations.forEach(s => { const a = Math.round(s.azi); azCnt[a] = (azCnt[a]||0)+1; });
-  const modalAz = +Object.entries(azCnt).sort((a,b)=>b[1]-a[1])[0][0];
-
-  /* build rate from build section */
-  let buildRate = 3.0;
-  const buildSec = stations.filter(s => s.inc > 1 && s.inc < maxInc - 0.5);
-  if (buildSec.length >= 2) {
-    const dInc = buildSec[buildSec.length-1].inc - buildSec[0].inc;
-    const dMD  = buildSec[buildSec.length-1].md  - buildSec[0].md;
-    if (dMD > 0) buildRate = Math.max(0.5, Math.round((dInc/dMD*30)*10)/10);
-  }
-
-  const totalMD = Math.max(...stations.map(s => s.md));
-
-  document.getElementById('td-kop').value = Math.round(kop/10)*10;
-  document.getElementById('td-inc').value = Math.round(maxInc);
-  document.getElementById('td-br').value  = buildRate;
-  document.getElementById('td-az').value  = modalAz;
-  document.getElementById('td-md').value  = Math.round(totalMD/50)*50;
-}
-
-/* Generate J-profile station list */
-function buildDesignedStations(kop, targetInc, buildRatePer30m, azimuth, totalMD) {
-  const brPerM = buildRatePer30m / 30;
-  const step   = 50;
-  const pts    = [];
-
-  /* vertical to KOP */
-  for (let md = 0; md <= Math.min(kop, totalMD); md += step)
-    pts.push({ md: +md.toFixed(2), inc: 0, azi: azimuth });
-  if (!pts.length || pts[pts.length-1].md < kop)
-    pts.push({ md: kop, inc: 0, azi: azimuth });
-
-  /* build section */
-  const buildLen = targetInc / brPerM;
-  const eob      = kop + buildLen;
-  let md = kop;
-  while (md < Math.min(eob, totalMD) - 0.1) {
-    md = Math.min(md + step, eob, totalMD);
-    pts.push({ md: +md.toFixed(2), inc: +(Math.min((md-kop)*brPerM, targetInc)).toFixed(2), azi: azimuth });
-  }
-
-  /* hold to TD */
-  if (eob < totalMD) {
-    md = eob;
-    while (md < totalMD - 0.1) {
-      md = Math.min(md + step, totalMD);
-      pts.push({ md: +md.toFixed(2), inc: targetInc, azi: azimuth });
-    }
-  }
-
-  /* ensure TD station */
-  if (!pts.length || pts[pts.length-1].md < totalMD)
-    pts.push({ md: totalMD, inc: Math.min(targetInc, (totalMD-kop)*brPerM), azi: azimuth });
-
-  /* deduplicate by MD */
-  const seen = new Set();
-  return pts.filter(p => { if (seen.has(p.md)) return false; seen.add(p.md); return true; });
-}
-
-/* Debounced auto-scan when designer inputs change */
-function onDesignerInput() {
-  if (!document.getElementById('td-autoscan').checked) return;
-  clearTimeout(_designerTimer);
-  _designerTimer = setTimeout(applyDesign, 600);
-}
-
-/* Apply the designed J-profile to the design well */
-function applyDesign() {
-  if (!designWell) return;
-  const kop      = +document.getElementById('td-kop').value || 500;
-  const targetInc = +document.getElementById('td-inc').value || 45;
-  const buildRate = +document.getElementById('td-br').value  || 3;
-  const azimuth  = +document.getElementById('td-az').value  || 45;
-  const totalMD  = +document.getElementById('td-md').value  || 2800;
-
-  designWell.stations  = buildDesignedStations(kop, targetInc, buildRate, azimuth, totalMD);
-  designWell.survey    = makeSurvey(designWell.name, designWell.stations);
-  designWell.isDesigned = true;
-
-  /* update mode badge without full re-render */
-  const mb = document.querySelector('#wcard-design .mode-badge');
-  if (mb) { mb.className = 'mode-badge mb-designed'; mb.textContent = 'DESIGNED'; }
-
-  draw3D(); drawPlan(); refreshMap();
-  if (offsetWells.length > 0) runScan();
-}
-
-/* Lock the current (original) scan as the baseline for PDF comparison */
-function lockOriginal() {
-  if (!scanResults) return toast('Run a scan first, then lock the original.', '');
-  if (designWell && designWell.isDesigned)
-    return toast('Reset to the original CSV trajectory before locking.', '');
-  originalDesignData = {
-    label:       designWell.name + ' — original trajectory',
-    stations:    [...(designWell.originalStations || designWell.stations)],
-    scanResults: JSON.parse(JSON.stringify(scanResults)),
-    distData:    distData ? JSON.parse(JSON.stringify(distData)) : null,
-    minSF:       scanResults.reduce((a,b) => b.sf < a.sf ? b : a).sf
-  };
-  document.getElementById('orig-lock-badge').style.display = 'flex';
-  document.getElementById('btn-reset-orig').disabled = false;
-  toast('Original locked — PDF will include both trajectory analyses.', 'ok');
-}
-
-/* Reset design well back to the original loaded CSV */
-function resetToOriginal() {
-  if (!designWell || !designWell.originalStations) return;
-  designWell.stations  = [...designWell.originalStations];
-  designWell.survey    = makeSurvey(designWell.name, designWell.stations);
-  designWell.isDesigned = false;
-  const mb = document.querySelector('#wcard-design .mode-badge');
-  if (mb) { mb.className = 'mode-badge mb-original'; mb.textContent = 'CSV'; }
-  initTrajDesigner(designWell.stations);
-  draw3D(); drawPlan(); refreshMap();
-  if (offsetWells.length > 0) runScan();
-}
-
-/* Update the live SF indicator in the trajectory designer */
-function updateDesignerSF() {
-  if (!scanResults || !designWell) return;
-  const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-  const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-  const min = scanResults.reduce((a,b) => b.sf < a.sf ? b : a);
-  const el  = document.getElementById('td-sf-val');
-  if (!el) return;
-  el.textContent = fmt(min.sf, 2);
-  el.style.color = min.sf < sfC ? '#dc2626' : min.sf < sfW ? '#d97706' : '#059669';
-  document.getElementById('td-sf-sub').textContent  = 'MD ' + fmt(min.designMD,0) + ' m · ' + xe(min.wellName||'');
-  document.getElementById('td-sf-icon').textContent = min.sf < sfC ? '🚨' : min.sf < sfW ? '⚠️' : '✅';
-  document.getElementById('td-sf-card').style.display = 'flex';
-}
-
-/* ─── Shared Plotly layout for SF / distance charts ─── */
-const PLT_CFG = { responsive:true, displayModeBar:false };
-
-function sfLayout(yTitle) {
-  return {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  '#f8fafc',
-    margin: { t:24, r:20, b:55, l:65 },
-    xaxis: { title:'Design MD (m)', gridcolor:'#e2e8f0', tickfont:{size:11} },
-    yaxis: { title: yTitle,         gridcolor:'#e2e8f0', tickfont:{size:11} },
-    legend: { x:1, xanchor:'right', y:1, bgcolor:'rgba(255,255,255,0.9)', font:{size:11} },
-    font: { family:'DM Sans, system-ui', size:12 },
-    hovermode:'x unified'
-  };
-}
-
-/* ─── DOM helpers ─── */
-function showEl(id) { document.getElementById(id).style.display = ''; }
-function hideEl(id) { document.getElementById(id).style.display = 'none'; }
-function fmt(v, d)  { return v == null ? '—' : Number(v).toFixed(d); }
-function xe(s)      { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function stripExt(n){ return n.replace(/\.[^.]+$/, ''); }
-function stamp()    { return new Date().toISOString().slice(0,10).replace(/-/g,''); }
-function colA(hex, a) {
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-/* ─── Toast ─── */
-function toast(msg, type) {
-  const el = document.createElement('div');
-  el.className = 'toast' + (type === 'err' ? ' err' : type === 'ok' ? ' ok' : '');
-  el.innerHTML = `<i class="fas ${type==='err'?'fa-circle-exclamation':type==='ok'?'fa-circle-check':'fa-circle-info'}"></i> ${xe(msg)}`;
-  document.getElementById('toast-box').appendChild(el);
-  setTimeout(() => el.remove(), 4500);
-}
-
-/* ─── Resize handler ─── */
-window.addEventListener('resize', () => {
-  ['plt-sf','plt-dist','plt-3d','plt-plan'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.style.display !== 'none') Plotly.Plots.resize(el);
-  });
-  if (leafletMap) leafletMap.invalidateSize();
-});
-
-/* ════════════════════════════════════════════════════
-   MAP (Leaflet + OpenStreetMap)
-════════════════════════════════════════════════════ */
-let leafletMap  = null;
-let mapLayers   = [];
-
-/* Convert North/East (metres, relative to surface location) → [lat, lon] */
-function nedToLatLon(north, east, lat0, lon0) {
-  const lat = lat0 + north / 111320;
-  const lon = lon0 + east  / (111320 * Math.cos(lat0 * Math.PI / 180));
-  return [lat, lon];
-}
-
-function initLeafletMap() {
-  const lat0 = designWell ? designWell.lat : defaultLat();
-  const lon0 = designWell ? designWell.lon : defaultLon();
-  leafletMap = L.map('map-container', { zoomControl: true });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(leafletMap);
-  leafletMap.setView([lat0, lon0], 14);
-}
-
-function refreshMap() {
-  if (!designWell) return;
-
-  /* Show map panel content */
-  document.getElementById('es-map').style.display = 'none';
-  const wrap = document.getElementById('map-wrap');
-  wrap.style.display = 'flex';
-
-  /* Init or reuse Leaflet instance */
-  if (!leafletMap) {
-    initLeafletMap();
-  } else {
-    /* Remove old layers */
-    mapLayers.forEach(l => { try { leafletMap.removeLayer(l); } catch(e){} });
-  }
-  mapLayers = [];
-
-  const allPoints = [];
-
-  /* ── Design well ── */
-  const dRes  = designWell.survey.getAll();
-  const dPath = dRes.map(r => nedToLatLon(r.north, r.east, designWell.lat, designWell.lon));
-  allPoints.push(...dPath);
-
-  /* Trajectory polyline */
-  const dLine = L.polyline(dPath, {
-    color: '#0d9488', weight: 3.5, opacity: 0.95
-  });
-  dLine.addTo(leafletMap);
-  mapLayers.push(dLine);
-
-  /* Horizontal projection dots every ~10 stations */
-  dRes.forEach((r, i) => {
-    if (i % 5 !== 0 && i !== dRes.length - 1) return;
-    const dot = L.circleMarker(nedToLatLon(r.north, r.east, designWell.lat, designWell.lon), {
-      radius: 2.5, color: '#0d9488', fillColor: '#0d9488',
-      fillOpacity: 0.6, weight: 1
-    });
-    dot.addTo(leafletMap);
-    mapLayers.push(dot);
-  });
-
-  /* Surface wellhead marker */
-  const dSurf = L.marker(dPath[0], { icon: makeWellIcon('#0d9488', 16, true) });
-  dSurf.bindPopup(popupHtml(designWell.name, 'Design Well', '#0d9488',
-    designWell.stations.length, dRes[dRes.length-1]));
-  dSurf.addTo(leafletMap);
-  mapLayers.push(dSurf);
-
-  /* TD point */
-  const dTd = L.circleMarker(dPath[dPath.length-1], {
-    radius: 6, color: '#0d9488', fillColor: '#fff',
-    fillOpacity: 0.9, weight: 2.5
-  }).bindTooltip('TD · ' + xe(designWell.name) + ' · TVD ' + fmt(dRes[dRes.length-1].tvd,0) + ' m',
-    { direction: 'top' });
-  dTd.addTo(leafletMap);
-  mapLayers.push(dTd);
-
-  /* ── Offset wells ── */
-  offsetWells.forEach((ow, i) => {
-    const col  = COLORS[i % COLORS.length];
-    const oRes  = ow.survey.getAll();
-    const oPath = oRes.map(r => nedToLatLon(r.north, r.east, ow.lat, ow.lon));
-    allPoints.push(...oPath);
-
-    const oLine = L.polyline(oPath, { color: col, weight: 2.5, opacity: 0.85 });
-    oLine.addTo(leafletMap);
-    mapLayers.push(oLine);
-
-    /* Surface marker */
-    const oSurf = L.marker(oPath[0], { icon: makeWellIcon(col, 13, false) });
-    oSurf.bindPopup(popupHtml(ow.name, 'Offset Well ' + (i+1), col,
-      ow.stations.length, oRes[oRes.length-1]));
-    oSurf.addTo(leafletMap);
-    mapLayers.push(oSurf);
-
-    /* TD point */
-    const oTd = L.circleMarker(oPath[oPath.length-1], {
-      radius: 4.5, color: col, fillColor: '#fff',
-      fillOpacity: 0.9, weight: 2
-    }).bindTooltip('TD · ' + xe(ow.name), { direction: 'top' });
-    oTd.addTo(leafletMap);
-    mapLayers.push(oTd);
-  });
-
-  /* If scan done — draw separation-factor heat dots on design path */
-  if (scanResults && scanResults.length) {
-    const sfW = +document.getElementById('inp-sfwarn').value || 1.5;
-    const sfC = +document.getElementById('inp-sfcrit').value || 1.0;
-
-    /* Group min SF per design MD across all offset wells */
-    const minSfByMD = {};
-    scanResults.forEach(r => {
-      const md = r.designMD;
-      if (minSfByMD[md] === undefined || r.sf < minSfByMD[md].sf)
-        minSfByMD[md] = r;
-    });
-
-    Object.values(minSfByMD).forEach(r => {
-      const res = designWell.survey.getAll().find(s => s.md === r.designMD);
-      if (!res) return;
-      const col = r.sf < sfC ? '#dc2626' : r.sf < sfW ? '#d97706' : '#059669';
-      const heat = L.circleMarker(nedToLatLon(res.north, res.east, designWell.lat, designWell.lon), {
-        radius: 4, color: col, fillColor: col,
-        fillOpacity: 0.55, weight: 0
-      }).bindTooltip('MD ' + fmt(r.designMD,0) + ' m · SF ' + fmt(r.sf,2), { direction: 'top' });
-      heat.addTo(leafletMap);
-      mapLayers.push(heat);
-    });
-  }
-
-  /* Fit map bounds */
-  if (allPoints.length > 1) {
-    leafletMap.fitBounds(allPoints, { padding: [50, 50] });
-  }
-  leafletMap.invalidateSize();
-
-  /* Legend */
-  buildMapLegend();
-}
-
-function makeWellIcon(color, size, isDesign) {
-  const border = isDesign ? '2.5px solid #fff' : '2px solid #fff';
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:${size}px;height:${size}px;background:${color};border:${border};border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
-    iconSize:   [size, size],
-    iconAnchor: [size/2, size/2]
-  });
-}
-
-function popupHtml(name, role, color, nStations, last) {
-  return `<div style="min-width:160px;">
-    <div style="font-weight:700;font-size:13px;color:${color};margin-bottom:4px;">${xe(name)}</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px;">${xe(role)}</div>
-    <table style="font-size:11px;width:100%;border-collapse:collapse;">
-      <tr><td style="color:#64748b;padding:1px 0;">Stations</td><td style="font-weight:600;">${nStations}</td></tr>
-      <tr><td style="color:#64748b;padding:1px 0;">TD (MD)</td><td style="font-weight:600;">${fmt(last.md,0)} m</td></tr>
-      <tr><td style="color:#64748b;padding:1px 0;">TVD</td><td style="font-weight:600;">${fmt(last.tvd,0)} m</td></tr>
-      <tr><td style="color:#64748b;padding:1px 0;">North</td><td style="font-weight:600;">${fmt(last.north,1)} m</td></tr>
-      <tr><td style="color:#64748b;padding:1px 0;">East</td><td style="font-weight:600;">${fmt(last.east,1)} m</td></tr>
-    </table>
-  </div>`;
-}
-
-function buildMapLegend() {
-  const hasScan = !!(scanResults && scanResults.length);
-  let html = '';
-  if (designWell)
-    html += `<span class="map-legend-item"><span class="map-legend-line" style="background:#0d9488;"></span>${xe(designWell.name)} (design)</span>`;
-  offsetWells.forEach((ow, i) =>
-    html += `<span class="map-legend-item"><span class="map-legend-line" style="background:${COLORS[i%COLORS.length]};"></span>${xe(ow.name)}</span>`
-  );
-  html += '<span style="margin-left:6px;color:#94a3b8;">|</span>';
-  html += '<span class="map-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#059669;display:inline-block;"></span>Safe</span>';
-  html += '<span class="map-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#d97706;display:inline-block;"></span>Warn</span>';
-  html += '<span class="map-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;"></span>Critical</span>';
-  if (!hasScan) html += '<span style="color:#94a3b8;font-size:10px;"> (run scan to show SF heat-dots)</span>';
-  document.getElementById('map-legend').innerHTML = html;
-}
-</script>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<dialog id="aboutDialog" class="about-dialog" aria-labelledby="aboutTitle">
+    <h3 id="aboutTitle">About Anti-Collision Analyst</h3>
+    <p>Computes the separation between a design well and its offset wells with the <strong>Minimum Curvature Method</strong>, searching each offset trajectory continuously, and reports a separation factor.</p>
+    <p><strong>SF = distance / (hole radii + k &times; uncertainty radii)</strong>. Critical and warning thresholds are yours to set.</p>
+    <p class="muted"><strong>Limits.</strong> The uncertainty radius is a simplified spherical estimate from three MWD terms. It is not an ISCWSA error model: there is no covariance propagation, no tool-code, no magnetic or grid correction and no project-ahead term. Results have not been verified against certified anti-collision software and must not be the basis of drilling decisions.</p>
+    <p class="muted">Developed by <strong>Ismail Harkat</strong>. MIT License. Contact: <a href="mailto:geoharkat@gmail.com">geoharkat@gmail.com</a>.</p>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="closeAbout()">Close</button>
+</dialog>
+
+<!-- Plain scripts, loaded in dependency order (no build step). -->
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/mincurve.js"></script>
+<script src="js/parsers.js"></script>
+<script src="js/collision.js"></script>
+<script src="js/process.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/plots.js"></script>
+<script src="js/export.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/interactions.js"></script>
 </body>
 </html>

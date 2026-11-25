@@ -1,18 +1,12 @@
 # Anti-Collision Analyst
 
-> **Directional drilling separation-factor analysis & ISCWSA MWD uncertainty model — powered by [welltraj](https://www.npmjs.com/package/welltraj)**
+> **Separation-factor screening between a design well and offset wells, in your browser.**
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![welltraj](https://img.shields.io/badge/welltraj-v1.0-teal.svg)
 
+**Live app:** <https://geoharkat.github.io/Anti-Collision/>
 
----
-
-## Overview
-
-Anti-Collision Analyst is a browser-based tool for oil & gas directional drilling engineers. It computes the **Separation Factor (SF)** between a design well and one or more offset wells, visualises all trajectories in 2D / 3D, and exports professional PDF and Excel reports — with no server required.
-
-
+> ⚠️ **Screening tool.** The positional uncertainty is a simplified 3-term MWD estimate, **not an ISCWSA error model**. Results have not been verified against certified anti-collision software and must not be the basis of drilling decisions.
 
 ---
 
@@ -20,15 +14,114 @@ Anti-Collision Analyst is a browser-based tool for oil & gas directional drillin
 
 | Category | Details |
 |---|---|
-| **Well ingestion** | CSV or Excel (`.xlsx` / `.xls`) — drag-and-drop or file picker |
-| **Column auto-detection** | Recognises `MD`, `INC`, `AZI` and common aliases automatically |
-| **SF analysis** | Centre-to-centre Separation Factor for every design-station / offset-well pair |
-| **ISCWSA uncertainty** | Optional MWD error-ellipse SF column (depth factor, inc error, azi error) |
-| **Trajectory Designer** | Interactive J-profile builder (KOP, build rate, target inclination, azimuth, TD); auto-scans on change |
-| **Original vs redesigned** | Lock the original scan, apply a redesigned trajectory, and compare both in one PDF |
-| **Charts** | SF profile, distance profile, 3D trajectory view, plan (spider) view — all via Plotly |
-| **Map** | Leaflet + OpenStreetMap with SF heat-dots along the design well path |
-| **Export** | Excel (scan table + distance profile) and PDF (landscape, multi-page, colour-coded) |
+| **Import** | CSV, TSV, TXT, LAS and Excel, with header, column and depth-unit detection, decimal commas and LAS `NULL` values |
+| **Units** | Metric (m, hole radius in m, deg/30m) or field (ft, hole radius in inches, deg/100ft) |
+| **Surface positions** | Per well: north / east of the design wellhead or latitude / longitude, and elevation |
+| **Separation** | Closest approach searched continuously along each offset, with local minima refined along the design well |
+| **Status** | Critical and warning thresholds, alert intervals, per-offset summary |
+| **Plots (D3.js)** | SF and distance against MD, travelling cylinder, plan view, vertical section, rotatable 3D view |
+| **Designer** | J-profile redesign of the design well, compared automatically with the loaded survey |
+| **Map** | OpenStreetMap, loaded only on request |
+| **Outputs** | PDF report with vector plots, Excel workbook, CSV, PNG and SVG |
+
+Results are recalculated after every change, so tables, plots and reports always match the inputs. Files are read in your browser and are not uploaded.
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/geoharkat/Anti-Collision.git
+cd Anti-Collision
+# open index.html in a browser, or serve the folder:
+python3 -m http.server 8000
+```
+
+There is no build step. Libraries load from public CDNs.
+
+**Try it:** click **Load sample wells**. Or load `sample-data/design-well.csv` as the design well and `offset-1.csv`, `offset-2.csv` as offsets, then set their surface positions with **Edit**:
+
+| Well | North of design | East of design |
+|---|---|---|
+| offset-1 | 520 m | 482 m |
+| offset-2 | -60 m | 140 m |
+
+The sample wells are synthetic.
+
+Plot controls: drag to pan (rotate in 3D), `Ctrl` + scroll to zoom, `Shift` + drag to zoom to a box, double-click to reset.
+
+---
+
+## Survey File Format
+
+| Column | Required | Notes |
+|---|---|---|
+| MD | Yes | Metres or feet |
+| Inc | Yes | Degrees, 0 to 180 |
+| Azi | Yes | Degrees from north. May be blank where inclination is 0 |
+| TVD, North, East | No | Used to prefill the tie-in |
+
+Rows that cannot be used are skipped and reported. Blank cells are never read as zero. Data starting below surface can be tied in by TVD, North and East; otherwise a vertical well from surface is assumed.
+
+Azimuths are used as given: **no magnetic declination or grid convergence is applied.** Make sure all wells use the same north reference.
+
+> **Set every offset's surface position.** Until you do, an offset is assumed to share the design wellhead and the app warns you.
+
+---
+
+## Method
+
+### Trajectories
+
+Minimum curvature. Positions between stations follow the same circular arc. Nothing is extrapolated beyond a well's surveyed interval; a warning is shown when the closest point is at the limit of an offset survey.
+
+### Closest approach
+
+For points every 5 m along the design well (and at refined minima), each offset trajectory is searched continuously for its closest point. This is independent of how far apart the survey stations are.
+
+### Separation factor
+
+```
+SF = D / (rD + rO + k · (uD + uO))
+```
+
+| Symbol | Meaning |
+|---|---|
+| D | Centre-to-centre distance from the design point to the closest offset point |
+| rD, rO | Hole radii of the design and offset wells |
+| uD, uO | Uncertainty radius at each point |
+| k | Multiplier on the uncertainty radius (default 1) |
+
+```
+u = √[ (f · MD)² + (εI · MD)² + (εA · MD · sin I)² ]
+```
+
+with depth factor `f` (default 0.0035), inclination error `εI` (0.2°) and azimuth error `εA` (0.5°), angles in radians.
+
+- **SF < critical** (default 1.0) → Critical
+- **SF < warning** (default 1.5) → Warning
+- otherwise → Safe
+
+With uncertainty switched off, `SF = D / (rD + rO)`. That only compares distance with hole size and is **not a collision-risk measure**.
+
+### What this model does not do
+
+No ISCWSA tool codes or covariance propagation, no directional (ellipsoidal) uncertainty, no confidence level calibration, no project-ahead or surface margin, no magnetic or grid corrections, no casing programme.
+
+### Surface coordinates
+
+Latitude / longitude differences are converted to metres with the WGS-84 length of a degree. This suits wells on a pad or within a field; use surveyed grid offsets where accuracy matters.
+
+---
+
+## Outputs
+
+| File | Contents |
+|---|---|
+| **PDF report** | Warnings and key figures, offset summary, designed-profile comparison, wells and parameters, six plots, alert intervals, SF listing, disclaimer |
+| **Excel** | Summary, Wells, Offset Summary, Alert Intervals, SF Scan, Distance Profile, Design Comparison, Surveys |
+| **CSV** | The table currently shown |
+| **PNG / SVG** | Any plot |
 
 ---
 
@@ -36,162 +129,31 @@ Anti-Collision Analyst is a browser-based tool for oil & gas directional drillin
 
 ```
 Anti-Collision/
-├── index.html          # Single-page application (all CSS + JS inline)
-├── welltraj.umd.js     # WellTraj library bundle (UMD)
+├── index.html
+├── styles.css
+├── js/
+│   ├── state.js         # application state
+│   ├── utils.js         # DOM helpers and formatting
+│   ├── mincurve.js      # units, minimum curvature, interpolation, tie-in
+│   ├── parsers.js       # CSV / LAS / Excel reading, sample wells
+│   ├── collision.js     # surface positions, uncertainty, closest approach, SF
+│   ├── process.js       # wells, parameters, designer, map
+│   ├── tables.js        # summary figures and tables
+│   ├── plots.js         # D3 charts
+│   ├── export.js        # CSV, Excel, PNG / SVG
+│   ├── pdf.js           # PDF report
+│   └── interactions.js  # start-up and events
 ├── sample-data/
-│   ├── design-well.csv
-│   ├── offset-1.csv
-│   ├── offset-2.csv
-│   └── ...
-└── README.md
+└── tests/core.test.js   # node --test tests/core.test.js
 ```
 
----
-
-## Getting Started
-
-### Run locally
-
-No build step is needed. Just open the file in a browser:
-
-```bash
-git clone https://github.com/geoharkat/Anti-Collision.git
-cd Anti-Collision
-# open index.html in your browser, or serve it:
-npx serve .
-```
-
-Then navigate to `http://localhost:3000`.
-
----
-
-## Survey File Format
-
-Input files must contain at least three columns. Column names are case-insensitive.
-
-| Column | Required aliases |
-|---|---|
-| Measured Depth | `MD`, `MEASURED_DEPTH`, `DEPTH`, `DEPT` |
-| Inclination | `INC`, `INCL`, `INCLINATION` |
-| Azimuth | `AZI`, `AZ`, `AZIM`, `AZIMUTH` |
-
-Example `design-well.csv`:
-
-```csv
-MD,INC,AZI
-0,0,45
-500,0,45
-550,1.5,45
-600,3.0,45
-...
-2800,45,45
-```
-
-Extra columns (TVD, North, East, etc.) are ignored — the app recomputes everything using minimum curvature via WellTraj.
-
----
-
-## Analysis Parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| VS Azimuth | 0° | Vertical section reference azimuth |
-| Design radius | 0.15 m | Borehole radius of the design well |
-| Offset radius | 0.15 m | Borehole radius of each offset well |
-| Warn SF ≥ | 1.5 | Separation Factor warning threshold |
-| Critical SF < | 1.0 | Separation Factor critical threshold |
-| ISCWSA depth factor | 0.0035 | MWD error model — depth-proportional term |
-| ISCWSA inc error | 0.2° | MWD error model — inclination uncertainty |
-| ISCWSA azi error | 0.5° | MWD error model — azimuth uncertainty |
-
----
-
-## Separation Factor
-
-The Separation Factor is defined as:
-
-```
-SF = (centre-to-centre distance) / (sum of borehole radii + uncertainty ellipse radius)
-```
-
-- **SF ≥ Warn threshold** → ✅ Safe
-- **Warn > SF ≥ Critical** → ⚠️ Warning
-- **SF < Critical** → 🚨 Critical
-
-When ISCWSA is enabled, a second SF column is computed using the combined MWD error ellipse of both wells at each depth station.
-
----
-
-## Trajectory Designer
-
-The built-in J-profile designer lets you test trajectory redesigns without modifying your original survey:
-
-1. Load the design well — parameters are auto-populated from the CSV.
-2. Click **Lock Original** to save the baseline scan results.
-3. Adjust KOP, azimuth, build rate, target inclination, and TD.
-4. The trajectory rebuilds and rescans automatically (toggle off for manual control).
-5. Click **Apply Designed Trajectory** to update all views.
-6. Export PDF — it will include a side-by-side comparison of original vs redesigned.
-
----
-
-## Surface Coordinates & Map
-
-Each well has an editable surface latitude / longitude (set via the pencil icon on its card, or via the **Default Field Location** panel). The app converts North / East offsets (computed by WellTraj) into geographic coordinates for the Leaflet map using:
-
-```
-Δlat = north / 111320
-Δlon = east  / (111320 × cos(lat₀))
-```
-
-All trajectories are plotted in a common coordinate frame relative to the design well's surface location.
-
----
-
-## Dependencies
-
-All loaded via CDN — no npm install required for the frontend.
-
-| Library | Purpose |
-|---|---|
-| [welltraj](https://www.npmjs.com/package/welltraj) | Minimum curvature, SF scan, distance profile |
-| [Plotly.js](https://plotly.com/javascript/) | Interactive 2D / 3D charts |
-| [Leaflet](https://leafletjs.com/) | Geographic map |
-| [PapaParse](https://www.papaparse.com/) | CSV parsing |
-| [SheetJS (xlsx)](https://sheetjs.com/) | Excel parsing and export |
-| [jsPDF + autotable](https://github.com/parallax/jsPDF) | PDF report generation |
-| [Font Awesome 6](https://fontawesome.com/) | Icons |
-| [DM Sans / JetBrains Mono](https://fonts.google.com/) | Typography |
-
----
-
-## Export
-
-### Excel
-Two sheets are exported:
-- **Anti-Collision** — full station-by-station scan table with SF and SF ISCWSA columns.
-- **Distance Profile** — centre-to-centre distance per design MD for every offset well.
-
-### PDF (landscape A4)
-- **Cover + comparison summary** (when original trajectory is locked).
-- **Current scan results** — colour-coded table (green / amber / red).
-- **Original scan results** — included when a baseline has been locked.
-- Page numbers and footer on every page.
-
----
-
-## Browser Support
-
-Any modern browser with ES6+ support. Tested on Chrome, Firefox, Edge, and Safari.
-No internet connection is required after the page loads (all CDN assets are cached by the browser).
+Libraries: D3.js, SheetJS, jsPDF, jsPDF-AutoTable, svg2pdf.js, and Leaflet for the optional map.
 
 ---
 
 ## Author
 
 **Ismail Harkat** — Senior Geologist
-
----
 
 ## License
 
